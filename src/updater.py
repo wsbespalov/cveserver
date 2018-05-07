@@ -1,5 +1,6 @@
 import sys
 import pika
+import ast
 import peewee
 import json
 import time
@@ -30,7 +31,8 @@ SETTINGS = {
         "password": '123',
         "database": "updater_db",
         "host": "localhost",
-        "port": "5432"
+        "port": "5432",
+        "drop_before": True
     }
 }
 
@@ -109,6 +111,52 @@ class CVEItem(object):
                           default=lambda o: o.__dict__,
                           sort_keys=True)
 
+class vulnerabilities(peewee.Model):
+    class Meta:
+        database = database
+        table_name = "vulnerabilities"
+
+    id = peewee.PrimaryKeyField(null=False,)
+    component = peewee.TextField(default="",)
+    version = peewee.TextField(default="",)
+    data_type = peewee.TextField(default="",)
+    data_format = peewee.TextField(default="",)
+    data_version = peewee.TextField(default="",)
+    cve_id = peewee.TextField(default="",)
+    cwe = peewee.TextField(default='{"data":[]},')
+    references = peewee.TextField(default='{"data":[]}',)
+    description = peewee.TextField(default="",)
+    cpe = peewee.TextField(default="",)
+    vulnerable_configuration = peewee.TextField(default='{"data":[]}',)
+    published = peewee.DateTimeField(default=datetime.now,)
+    modified = peewee.DateTimeField(default=datetime.now,)
+
+    def __unicode__(self):
+        return "vulnerabilities"
+
+    def __str__(self):
+        return self.cve_id
+
+    @property
+    def to_json(self):
+        return dict(
+            id=self.id,
+            component=self.component,
+            version=self.version,
+            data_type=self.data_type,
+            data_format=self.data_format,
+            data_version=self.data_version,
+            cve_id=self.cve_id,
+            cwe=self.cwe,
+            references=self.references,
+            description=self.description,
+            cpe=self.cpe,
+            vulnerable_configuration=self.vulnerable_configuration,
+            published=self.published,
+            modified=self.modified
+        )
+
+
 ##############################################################################
 
 def download_cve_file(source):
@@ -169,6 +217,15 @@ def print_short(items_to_print):
             item["cve_id"],
             item["cpe"],
             item["vulnerable_configuration"]["data"]))
+
+def serialize_json(source):
+    return json.dumps(ast.literal_eval(source))
+
+def deserialize_json(source):
+    a = ast.literal_eval(source)
+    if isinstance(a, dict):
+        return a
+    return json.loads(a)
 
 def progressbar(it, prefix="Processing ", size=50):
     count = len(it)
@@ -241,16 +298,108 @@ def filter_items_to_update(items_fo_filter):
 
 ##############################################################################
 
+def if_item_already_exists__ids(component, version, cve_id):
+    # Get IDs of records
+    list_of_elements = list(
+        vulnerabilities.select().where(
+            (vulnerabilities.component==component) &
+            (vulnerabilities.version==version) &
+            (vulnerabilities.cve_id==cve_id)
+        )
+    )
+    list_of_ids = []
+    for element in list_of_elements:
+        list_of_ids.append(element.id)
+    return list_of_ids
+
+def create_record_in_database(item_to_create):
+    vulner = vulnerabilities(
+        component=item_to_create.get("component", ""),
+        version=item_to_create.get("version", ""),
+        data_type=item_to_create.get("data_type", ""),
+        data_format=item_to_create.get("data_format", ""),
+        data_version=item_to_create.get("data_version", ""),
+        cve_id=item_to_create.get("cve_id", ""),
+        cwe=item_to_create.get("cwe", '{"data": []}'),
+        references=item_to_create.get("references", '{"data": []}'),
+        description=item_to_create.get("description", ""),
+        cpe=item_to_create.get("cpe", ""),
+        vulnerable_configuration=item_to_create.get("vulnerable_configuration", '{"data": []}'),
+        published=item_to_create.get("published", str(datetime.utcnow())),
+        modified=item_to_create.get("modified", str(datetime.utcnow()))
+    )
+    vulner.save()
+    return vulner.id
+
+def update_record_in_database(item_to_update, item_id_in_database):
+    vulner_from_database = vulnerabilities.get(vulnerabilities.id==item_id_in_database)
+    vulner = vulner_from_database.to_json
+    if vulner["data_type"] != item_to_update["data_type"]:
+        vulner_from_database.data_type = item_to_update["data_type"]
+    if vulner["data_format"] != item_to_update["data_format"]:
+        vulner_from_database.data_format = item_to_update["data_format"]
+    if vulner["data_version"] != item_to_update["data_version"]:
+        vulner_from_database.data_version = item_to_update["data_version"]
+    if deserialize_json(vulner["cwe"]) != item_to_update["cwe"]:
+        vulner_from_database.cwe = serialize_json(item_to_update["cwe"])
+    if deserialize_json(vulner["references"]) != item_to_update["references"]:
+        vulner_from_database.references = serialize_json(item_to_update["references"])
+    if vulner["description"] != item_to_update["description"]:
+        vulner_from_database.description = item_to_update["description"]
+    if vulner["cpe"] != item_to_update["cpe"]:
+        vulner_from_database.cpe = item_to_update["cpe"]
+    if deserialize_json(vulner["vulnerable_configuration"]) != item_to_update["vulnerable_configuration"]:
+        vulner_from_database.vulnerable_configuration = serialize_json(item_to_update["vulnerable_configuration"])
+    if not str(vulner["published"]).__eq__(str(item_to_update["published"])):
+        vulner_from_database.published = item_to_update["published"]
+    if not str(vulner["modified"]).__eq__(str(item_to_update["modified"])):
+        vulner_from_database.modified = item_to_update["modified"]
+    vulner_from_database.save()
+    return vulner_from_database.id
+
 def update_vulners_table(items_to_update):
-    # print_list(items_to_update)
-    print_short(items_to_update)
-    pass
+    start_time = time.time()
+    count_of_new_records = 0
+    count_of_updated_records = 0
+
+    database.connect()
+
+    if SETTINGS["postgres"]["drop_before"]:
+        vulnerabilities.delete()
+
+    vulnerabilities.create_table()
+
+    # For every item in items to update
+    for one_item in items_to_update:
+        # Check if exists
+        component = one_item.get("component", None)
+        version = one_item.get("version", None)
+        cve_id = one_item.get("cve_id", None)
+        if component is not None and \
+            version is not None and \
+            cve_id is not None:
+            if_records_exists_in_database__ids = if_item_already_exists__ids(component, version, cve_id)
+            if len(if_records_exists_in_database__ids) > 0:
+                for item_id_in_database in if_records_exists_in_database__ids:
+                    update_record_in_database(one_item, item_id_in_database)
+                    count_of_updated_records += 1
+            else:
+                create_record_in_database(one_item)
+                count_of_new_records += 1
+        pass
+
+    database.close()
+
+    return count_of_new_records, count_of_updated_records, time.time() - start_time
 
 ##############################################################################
 
 def populate_cve_from_source():
+    start_time = time.time()
     start_year = SETTINGS.get("start_year", 2018)
     current_year = datetime.now().year
+    count_of_parsed_cve_items = 0
+    count_of_populated_items = 0
     for year in range(start_year, current_year + 1):
         print("Populate CVE-{}".format(year))
         source = SETTINGS["sources"]["cve_base"] + str(year) + SETTINGS["sources"]["cve_base_postfix"]
@@ -258,11 +407,14 @@ def populate_cve_from_source():
         parsed_cve_items = parse_cve_file__list_json(cve_item)
         items_to_populate = filter_items_to_update(parsed_cve_items)
         update_vulners_table(items_to_populate)
-        print("Get {} populated elements from source".format(len(parsed_cve_items)))
-        print("Append {} populated elements from souce in database".format(len(items_to_populate)))
-
+        count_of_parsed_cve_items += len(parsed_cve_items)
+        count_of_populated_items += len(items_to_populate)
+    return count_of_parsed_cve_items, count_of_populated_items, time.time() - start_time
 
 def update_modified_cves_from_source():
+    start_time = time.time()
+    count_of_parsed_cve_items = 0
+    count_of_updated_items = 0
     modified_items, response = download_cve_file(SETTINGS["sources"]["cve_modified"])
     modified_parsed = parse_cve_file__list_json(modified_items)
 
@@ -270,10 +422,14 @@ def update_modified_cves_from_source():
 
     update_vulners_table(items_to_update)
 
-    print("Get {} modified elements from source".format(len(modified_parsed)))
-    print("Append {} modified elements from souce in database".format(len(items_to_update)))
+    count_of_parsed_cve_items = len(modified_parsed)
+    count_of_updated_items = len(items_to_update)
+    return count_of_parsed_cve_items, count_of_updated_items, time.time() - start_time
 
 def update_recent_cves_from_source():
+    start_time = time.time()
+    count_of_parsed_cve_items = 0
+    count_of_updated_items = 0
     recent_items, response = download_cve_file(SETTINGS["sources"]["cve_recent"])
     recent_parsed = parse_cve_file__list_json(recent_items)
 
@@ -281,16 +437,34 @@ def update_recent_cves_from_source():
 
     update_vulners_table(items_to_update)
 
-    print("Get {} reccent elements from source".format(len(recent_parsed)))
-    print("Append {} recent elements from souce in database".format(len(items_to_update)))
+    count_of_parsed_cve_items = len(recent_parsed)
+    count_of_updated_items = len(items_to_update)
+    return count_of_parsed_cve_items, count_of_updated_items, time.time() - start_time
 
 ##############################################################################
 
 def main():
-    populate_cve_from_source()
-    # update_modified_cves_from_source()
-    # update_recent_cves_from_source()
-    print("Complete updater work.")
+    # TODO: Check published and modified fields formats
+
+    print("Start population of database")
+    count_of_parsed_cve_items, count_of_populated_items, time_delta = populate_cve_from_source()
+    print("Get       {} populated elements from source".format(count_of_parsed_cve_items))
+    print("Append    {} populated elements from source in database".format(count_of_populated_items))
+    print("TimeDelta %.2f sec." % (time_delta))
+
+    print("Start update modified of database")
+    count_of_parsed_cve_items, count_of_updated_items, time_delta = update_modified_cves_from_source()
+    print("Get       {} modified elements from source".format(count_of_parsed_cve_items))
+    print("Append    {} modified elements from source in database".format(count_of_updated_items))
+    print("TimeDelta %.2f sec." % (time_delta))
+
+    print("Start update recent of database")
+    count_of_parsed_cve_items, count_of_updated_items, time_delta = update_recent_cves_from_source()
+    print("Get       {} recent elements from source".format(count_of_parsed_cve_items))
+    print("Append    {} recent elements from souce in database".format(count_of_updated_items))
+    print("TimeDelta %.2f sec." % (time_delta))
+
+    print("Complete  updater work.")
 
 ##############################################################################
 
