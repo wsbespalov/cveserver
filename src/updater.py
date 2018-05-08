@@ -32,8 +32,10 @@ SETTINGS = {
         "database": "updater_db",
         "host": "localhost",
         "port": "5432",
-        "drop_before": True
-    }
+        "drop_before": True,
+        "cache_size_mb": 64
+    },
+    "debug": True
 }
 
 ##############################################################################
@@ -46,6 +48,21 @@ database = peewee.PostgresqlDatabase(
     host=POSTGRES.get("host", "localhost"),
     port=int(POSTGRES.get("port", 5432))
 )
+
+def connect_database():
+    # database.pragma('cache_size', -1024 * int(SETTINGS["postgres"]["cache_size"]))
+    try:
+        if database.is_closed():
+            database.connect()
+    except peewee.OperationalError as peewee_operational_error:
+        pass
+
+def disconnect_database():
+    try:
+        if not database.is_closed():
+            database.close()
+    except peewee.OperationalError as peewee_operational_error:
+        pass
 
 ##############################################################################
 
@@ -243,6 +260,10 @@ def progressbar(it, prefix="Processing ", size=50):
     sys.stdout.write("\n")
     sys.stdout.flush()
 
+def normalize_ts(first_ts, second_ts):
+
+    pass
+
 ##############################################################################
 
 def filter_cpe_string__json(element):
@@ -268,9 +289,10 @@ def filter_cpe_string__json(element):
 
     return result
 
-def filter_items_to_update(items_fo_filter):
+def filter_items_to_update__list_of_items(items_fo_filter):
     filtered_items = []
-    for item in items_fo_filter:
+    # for item in items_fo_filter:
+    for item in progressbar(items_fo_filter, prefix='Filtering  '):
         # For every item in downloaded update
         # Get cpe strings
         list_of_cpe_ctrings_field = item.get("vulnerable_configuration", {})
@@ -312,7 +334,7 @@ def if_item_already_exists__ids(component, version, cve_id):
         list_of_ids.append(element.id)
     return list_of_ids
 
-def create_record_in_database(item_to_create):
+def create_record_in_database__vulner_id(item_to_create):
     vulner = vulnerabilities(
         component=item_to_create.get("component", ""),
         version=item_to_create.get("version", ""),
@@ -331,46 +353,56 @@ def create_record_in_database(item_to_create):
     vulner.save()
     return vulner.id
 
-def update_record_in_database(item_to_update, item_id_in_database):
+def update_vulner_in_database__vulner_id(item_to_update, item_id_in_database):
+    was_modified = False
     vulner_from_database = vulnerabilities.get(vulnerabilities.id==item_id_in_database)
     vulner = vulner_from_database.to_json
     if vulner["data_type"] != item_to_update["data_type"]:
+        was_modified = True
         vulner_from_database.data_type = item_to_update["data_type"]
     if vulner["data_format"] != item_to_update["data_format"]:
+        was_modified = True
         vulner_from_database.data_format = item_to_update["data_format"]
     if vulner["data_version"] != item_to_update["data_version"]:
+        was_modified = True
         vulner_from_database.data_version = item_to_update["data_version"]
     if deserialize_json(vulner["cwe"]) != item_to_update["cwe"]:
+        was_modified = True
         vulner_from_database.cwe = serialize_json(item_to_update["cwe"])
     if deserialize_json(vulner["references"]) != item_to_update["references"]:
+        was_modified = True
         vulner_from_database.references = serialize_json(item_to_update["references"])
     if vulner["description"] != item_to_update["description"]:
+        was_modified = True
         vulner_from_database.description = item_to_update["description"]
     if vulner["cpe"] != item_to_update["cpe"]:
+        was_modified = True
         vulner_from_database.cpe = item_to_update["cpe"]
     if deserialize_json(vulner["vulnerable_configuration"]) != item_to_update["vulnerable_configuration"]:
+        was_modified = True
         vulner_from_database.vulnerable_configuration = serialize_json(item_to_update["vulnerable_configuration"])
-    if not str(vulner["published"]).__eq__(str(item_to_update["published"])):
-        vulner_from_database.published = item_to_update["published"]
-    if not str(vulner["modified"]).__eq__(str(item_to_update["modified"])):
-        vulner_from_database.modified = item_to_update["modified"]
-    vulner_from_database.save()
+    if unify_time(vulner["published"]) != unify_time(item_to_update["published"]):
+        was_modified = True
+        vulner_from_database.published = unify_time(item_to_update["published"])
+    if unify_time(vulner["modified"]) != unify_time(item_to_update["modified"]):
+        was_modified = True
+        vulner_from_database.modified = unify_time(item_to_update["modified"])
+    if was_modified:
+        vulner_from_database.save()
     return vulner_from_database.id
 
-def update_vulners_table(items_to_update):
+def update_vulners_table__counts(items_to_update):
     start_time = time.time()
     count_of_new_records = 0
     count_of_updated_records = 0
 
-    database.connect()
-
-    if SETTINGS["postgres"]["drop_before"]:
-        vulnerabilities.delete()
+    connect_database()
 
     vulnerabilities.create_table()
 
     # For every item in items to update
-    for one_item in items_to_update:
+    # for one_item in items_to_update:
+    for one_item in progressbar(items_to_update):
         # Check if exists
         component = one_item.get("component", None)
         version = one_item.get("version", None)
@@ -381,20 +413,20 @@ def update_vulners_table(items_to_update):
             if_records_exists_in_database__ids = if_item_already_exists__ids(component, version, cve_id)
             if len(if_records_exists_in_database__ids) > 0:
                 for item_id_in_database in if_records_exists_in_database__ids:
-                    update_record_in_database(one_item, item_id_in_database)
+                    update_vulner_in_database__vulner_id(one_item, item_id_in_database)
                     count_of_updated_records += 1
             else:
-                create_record_in_database(one_item)
+                create_record_in_database__vulner_id(one_item)
                 count_of_new_records += 1
         pass
 
-    database.close()
+    disconnect_database()
 
     return count_of_new_records, count_of_updated_records, time.time() - start_time
 
 ##############################################################################
 
-def populate_cve_from_source():
+def populate_cve_from_source__counts():
     start_time = time.time()
     start_year = SETTINGS.get("start_year", 2018)
     current_year = datetime.now().year
@@ -403,39 +435,46 @@ def populate_cve_from_source():
     for year in range(start_year, current_year + 1):
         print("Populate CVE-{}".format(year))
         source = SETTINGS["sources"]["cve_base"] + str(year) + SETTINGS["sources"]["cve_base_postfix"]
+
         cve_item, response = download_cve_file(source)
+
         parsed_cve_items = parse_cve_file__list_json(cve_item)
-        items_to_populate = filter_items_to_update(parsed_cve_items)
-        update_vulners_table(items_to_populate)
+
+        items_to_populate = filter_items_to_update__list_of_items(parsed_cve_items)
+
+        update_vulners_table__counts(items_to_populate)
+
         count_of_parsed_cve_items += len(parsed_cve_items)
         count_of_populated_items += len(items_to_populate)
     return count_of_parsed_cve_items, count_of_populated_items, time.time() - start_time
 
-def update_modified_cves_from_source():
+def update_modified_cves_from_source__counts():
     start_time = time.time()
     count_of_parsed_cve_items = 0
     count_of_updated_items = 0
+
     modified_items, response = download_cve_file(SETTINGS["sources"]["cve_modified"])
     modified_parsed = parse_cve_file__list_json(modified_items)
 
-    items_to_update = filter_items_to_update(modified_parsed)
+    items_to_update = filter_items_to_update__list_of_items(modified_parsed)
 
-    update_vulners_table(items_to_update)
+    update_vulners_table__counts(items_to_update)
 
     count_of_parsed_cve_items = len(modified_parsed)
     count_of_updated_items = len(items_to_update)
     return count_of_parsed_cve_items, count_of_updated_items, time.time() - start_time
 
-def update_recent_cves_from_source():
+def update_recent_cves_from_source__counts():
     start_time = time.time()
     count_of_parsed_cve_items = 0
     count_of_updated_items = 0
+
     recent_items, response = download_cve_file(SETTINGS["sources"]["cve_recent"])
     recent_parsed = parse_cve_file__list_json(recent_items)
 
-    items_to_update = filter_items_to_update(recent_parsed)
+    items_to_update = filter_items_to_update__list_of_items(recent_parsed)
 
-    update_vulners_table(items_to_update)
+    update_vulners_table__counts(items_to_update)
 
     count_of_parsed_cve_items = len(recent_parsed)
     count_of_updated_items = len(items_to_update)
@@ -443,28 +482,167 @@ def update_recent_cves_from_source():
 
 ##############################################################################
 
+def find_vulner_in_postgres_by_cve_id__list_of_items(cve_id):
+    connect_database()
+    database_items = list(vulnerabilities.select().where(vulnerabilities.cve_id==cve_id))
+    items = []
+    for database_item in database_items:
+        items.append(
+            database_item.to_json
+        )
+    disconnect_database()
+    return items
+
+def find_list_of_vulners_in_postgres_by_cve_id__list_of_items(list_of_cve_ids):
+    items = []
+    if isinstance(list_of_cve_ids, list):
+        connect_database()
+        for cve_id in list_of_cve_ids:
+            database_items = list(vulnerabilities.select().where(vulnerabilities.cve_id == cve_id))
+            for database_item in database_items:
+                items = items + [database_item.to_json]
+        disconnect_database()
+    return items
+
+def find_vulner_in_postgres_by_component_and_version__list_of_items(component, version):
+    connect_database()
+    list_of_elements = []
+    if "*" in version:
+        version = version[:version.index("*")]
+        list_of_elements = list(
+            vulnerabilities.select().where(
+                (vulnerabilities.component == component) &
+                (vulnerabilities.version.startswith(version))
+            )
+        )
+    else:
+        list_of_elements = list(
+            vulnerabilities.select().where(
+                (vulnerabilities.component == component) &
+                (vulnerabilities.version == version)
+            )
+        )
+    items = []
+    for element in list_of_elements:
+        items.append(element.to_json)
+    disconnect_database()
+    return items
+
+def find_list_of_vulners_in_postgres_by_component_and_versions_list__list_of_items(list_of_component_and_versions):
+    """
+    Get list if vulners with component and versions.
+    If version contains "*" - slice version and use "startwith".
+    example:
+        version = "1.3.*" -> version = "1.3."
+    :param list_of_component_and_versions:
+    :return:
+    """
+    items = []
+    if isinstance(list_of_component_and_versions, list):
+        connect_database()
+        for component_and_version in list_of_component_and_versions:
+            if isinstance(component_and_version, dict):
+                component = str(component_and_version["component"])
+                version = str(component_and_version["version"])
+                list_of_elements = []
+
+                if "*" in version:
+                    version = version[:version.index("*")]
+                    list_of_elements = list(
+                        vulnerabilities.select().where(
+                            (vulnerabilities.component == component) &
+                            (vulnerabilities.version.startswith(version))
+                        )
+                    )
+                else:
+                    list_of_elements = list(
+                        vulnerabilities.select().where(
+                            (vulnerabilities.component == component) &
+                            (vulnerabilities.version == version)
+                        )
+                    )
+                new_items = []
+                for element in list_of_elements:
+                    new_items.append(element.to_json)
+                items = items + new_items
+        disconnect_database()
+    return items
+
+def reformat_vulner_for_output__json(item_to_reformat):
+    pass
+
+##############################################################################
+
 def main():
-    # TODO: Check published and modified fields formats
+    # if SETTINGS["postgres"]["drop_before"]:
+    #     print('Table ~vulnerabilities~ will be drop according SETTINGS ~drop_before~ parameter.')
+    #     connect_database()
+    #     vulnerabilities.delete()
+    #     disconnect_database()
 
-    print("Start population of database")
-    count_of_parsed_cve_items, count_of_populated_items, time_delta = populate_cve_from_source()
-    print("Get       {} populated elements from source".format(count_of_parsed_cve_items))
-    print("Append    {} populated elements from source in database".format(count_of_populated_items))
-    print("TimeDelta %.2f sec." % (time_delta))
+    # print("Start population of database")
+    # count_of_parsed_cve_items, count_of_populated_items, time_delta = populate_cve_from_source__counts()
+    # print("Get        {} populated elements from source".format(count_of_parsed_cve_items))
+    # print("Append     {} populated elements from source in database".format(count_of_populated_items))
+    # print("TimeDelta  %.2f sec." % (time_delta))
 
-    print("Start update modified of database")
-    count_of_parsed_cve_items, count_of_updated_items, time_delta = update_modified_cves_from_source()
-    print("Get       {} modified elements from source".format(count_of_parsed_cve_items))
-    print("Append    {} modified elements from source in database".format(count_of_updated_items))
-    print("TimeDelta %.2f sec." % (time_delta))
+    # print("Start update modified of database")
+    # count_of_parsed_cve_items, count_of_updated_items, time_delta = update_modified_cves_from_source__counts()
+    # print("Get        {} modified elements from source".format(count_of_parsed_cve_items))
+    # print("Append     {} modified elements from source in database".format(count_of_updated_items))
+    # print("TimeDelta  %.2f sec." % (time_delta))
 
-    print("Start update recent of database")
-    count_of_parsed_cve_items, count_of_updated_items, time_delta = update_recent_cves_from_source()
-    print("Get       {} recent elements from source".format(count_of_parsed_cve_items))
-    print("Append    {} recent elements from souce in database".format(count_of_updated_items))
-    print("TimeDelta %.2f sec." % (time_delta))
+    # print("Start update recent of database")
+    # count_of_parsed_cve_items, count_of_updated_items, time_delta = update_recent_cves_from_source__counts()
+    # print("Get        {} recent elements from source".format(count_of_parsed_cve_items))
+    # print("Append     {} recent elements from souce in database".format(count_of_updated_items))
+    # print("TimeDelta  %.2f sec." % (time_delta))
 
-    print("Complete  updater work.")
+    # connect_database()
+    # count = vulnerabilities.select().count()
+    # disconnect_database()
+    # print('Table ~vulnerabilities~ count now is: {}'.format(count))
+
+
+
+    # start_time = time.time()
+    # print_list(find_vulner_in_postgres_by_cve_id__list_of_items("CVE-2018-0001"))
+    # print("TimeDelta: {}".format(time.time() - start_time))
+
+
+
+    # start_time = time.time()
+    # print_list(find_list_of_vulners_in_postgres_by_cve_id__list_of_items([
+    #     "CVE-2018-0001",
+    #     "CVE-2018-0003",
+    #     "CVE-2017-9998",
+    #     "CVE-2017-9993",
+    #     "CVE-2017-9992",
+    #     "CVE-2018-0089"]))
+    # print("TimeDelta: {}".format(time.time() - start_time))
+    # print("Complete   updater work.")
+
+
+
+    # start_time = time.time()
+    # print_list(find_vulner_in_postgres_by_component_and_version__list_of_items("junos", "14.1"))
+    # print("TimeDelta: {}".format(time.time() - start_time))
+
+
+    # start_time = time.time()
+    # print_list(find_list_of_vulners_in_postgres_by_component_and_versions_list__list_of_items([
+    #     {"component": "junos", "version": "14.1"},
+    #     {"component": "junos", "version": "14.2"},
+    #     {"component": "ffmpeg", "version": "3.2"},
+    # ]))
+    # print("TimeDelta: {}".format(time.time() - start_time))
+
+    start_time = time.time()
+    print_list(find_list_of_vulners_in_postgres_by_component_and_versions_list__list_of_items([
+        {"component": "ffmpeg", "version": "3.2*"},
+    ]))
+    print("TimeDelta: {}".format(time.time() - start_time))
+
 
 ##############################################################################
 
