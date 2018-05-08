@@ -1,4 +1,5 @@
 import sys
+import re
 import pika
 import ast
 import peewee
@@ -568,8 +569,37 @@ def find_list_of_vulners_in_postgres_by_component_and_versions_list__list_of_ite
         disconnect_database()
     return items
 
+def only_digits(var):
+    return re.sub("\D", "", var)
+
 def reformat_vulner_for_output__json(item_to_reformat):
-    pass
+    template = dict(
+        Published=unify_time(item_to_reformat.get("publushed", datetime.utcnow())),
+        Modified=unify_time(item_to_reformat.get("modified", datetime.utcnow())),
+        access=item_to_reformat.get("access", dict(
+            vector="",
+            complexity="",
+            authentication=""
+        )),
+        impact=item_to_reformat.get("impact", dict(
+            confidentiality="",
+            integrity="",
+            availability=""
+        )),
+        cvss_time=unify_time(item_to_reformat.get("cvss_time", datetime.utcnow())),
+        cvss=float(item_to_reformat.get("cvss", "0.0")),
+        cwe=item_to_reformat.get("cwe", ""),
+        cwe_id=only_digits(item_to_reformat.get("cwe", "")),
+        title=item_to_reformat.get("cve_id", ""),
+        description=item_to_reformat.get("description", ""),
+        rank=item_to_reformat.get("rank", ""),
+        __v=item_to_reformat.get("__v", ""),
+        capec=item_to_reformat.get("capec", []),
+        vulnerable_configurations=item_to_reformat.get("vulnerable_configurations", []),
+        vulnerable_configuration=item_to_reformat.get("cpe", []),
+        cve_references=item_to_reformat.get("references", [])
+    )
+    return template
 
 ##############################################################################
 
