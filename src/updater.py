@@ -13,6 +13,7 @@ from dateutil.parser import parse as parse_datetime
 
 from settings import SETTINGS
 from upd_vulners import *
+from upd_cwe import action_update_cwe
 from searcher import *
 
 from models import *
@@ -43,8 +44,7 @@ def action_update_recent_elements():
 ##############################################################################
 
 def main():
-
-
+    print(action_update_cwe())
     # TODO: Correct     reformat_vulner_for_output__json
 
 

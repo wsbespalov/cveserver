@@ -11,7 +11,8 @@ database = peewee.PostgresqlDatabase(
     port=int(POSTGRES.get("port", 5432))
 )
 
-class cwe(peewee.Model):
+
+class CWE(peewee.Model):
     class Meta:
         database = database
         ordering =("cwe_id", )
@@ -21,7 +22,7 @@ class cwe(peewee.Model):
     cwe_id = peewee.TextField(default="",)
     name = peewee.TextField(default="",)
     status = peewee.TextField(default="",)
-    weaknessabs = peewee.TextField(default="",)
+    weaknesses = peewee.TextField(default="",)
     description_summary = peewee.TextField(default="",)
 
     def __unicode__(self):
