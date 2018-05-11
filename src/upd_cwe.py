@@ -145,8 +145,11 @@ def action_update_cwe():
             message="Update Database CWE: Complete."
         )
 
+    stop_time = time.time()
+    disconnect_database()
+
     return dict(
-        items=0,
-        time_delta=0,
+        items=len(parsed_items),
+        time_delta=stop_time - start_time,
         message="Update Database CWE: Not modified"
     )
