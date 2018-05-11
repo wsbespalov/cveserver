@@ -1,5 +1,6 @@
 import re
 import sys
+import time
 from math import floor
 from settings import SETTINGS
 from utils import *
@@ -224,34 +225,68 @@ def only_digits(var):
 def reformat_vulner_for_output__json(item_to_reformat):
     published = unify_time(item_to_reformat.get("publushed", datetime.utcnow()))
     modified = unify_time(item_to_reformat.get("modified", datetime.utcnow()))
-    access = item_to_reformat.get("access", dict( # not yet +
+    access_in_item = item_to_reformat.get("access", dict(
             vector="",
             complexity="",
             authentication=""
         ))
-    impact = item_to_reformat.get("impact", dict( # not yet +
+    if isinstance(access_in_item, str):
+        access = deserialize_json__for_postgres(access_in_item)
+    else:
+        access = access_in_item
+
+    impact_in_item = item_to_reformat.get("impact", dict(
             confidentiality="",
             integrity="",
             availability=""
         ))
+    if isinstance(impact_in_item, str):
+        impact = deserialize_json__for_postgres(impact_in_item)
+    else:
+        impact = impact_in_item
+
     vector_string = item_to_reformat.get("vector_string", "")
-    cvss_time = unify_time(item_to_reformat.get("cvss_time", datetime.utcnow())) # not yet +
-    cvss = item_to_reformat.get("cvss", 0.0) # not yet +
-    cwe_json = item_to_reformat.get("cwe", {})
+    cvss_time = unify_time(item_to_reformat.get("cvss_time", datetime.utcnow()))
+    cvss = item_to_reformat.get("cvss", 0.0)
+    cwe_in_item = item_to_reformat.get("cwe", {})
+    cwe_json = deserialize_json__for_postgres(cwe_in_item)
     cwe_list = cwe_json.get("data", [])
     cwe_id_list = []
     for cwe_in_list in cwe_list:
         cwe_id_list.append(only_digits(cwe_in_list))
     title = item_to_reformat.get("cve_id", "")
     description = item_to_reformat.get("description", "")
-    # rank = item_to_reformat.get("rank", "") # not yet +
+
     rank = floor(cvss)
-    # __v = item_to_reformat.get("__v", "") # not yet +
+
     __v = 0
-    capec = item_to_reformat.get("capec", []) # not yet
+
+    capec_in_item = item_to_reformat.get("capec", {})
+    capec_json = deserialize_json__for_postgres(capec_in_item)
+    capec_list = capec_json.get("data", [])
+    capec = [] # not yet
+    for capec_in_list in capec_list:
+        if isinstance(capec_in_list, str):
+            capec.append(json.loads(capec_in_list))
+        elif isinstance(capec_in_list, dict):
+            capec.append(capec_in_list)
+        else:
+            pass
+
+    for i in range(0, len(capec)):
+        related_weakness = capec[i].get("related_weakness", "[]")
+        capec[i]["related_weakness"] = ast.literal_eval(related_weakness)
+
     vulnerable_configurations = []
-    vulnerable_configuration = item_to_reformat.get("vulnerable_configuration", [])
-    cve_references = item_to_reformat.get("references", [])
+
+    vulnerable_configuration_in_item = item_to_reformat.get("vulnerable_configuration", {})
+    vulnerable_configuration_in_json = deserialize_json__for_postgres(vulnerable_configuration_in_item)
+    vulnerable_configuration = vulnerable_configuration_in_json.get("data", [])
+
+    cve_references_in_item = item_to_reformat.get("references", {})
+    cve_references_in_json = deserialize_json__for_postgres(cve_references_in_item)
+    cve_references = cve_references_in_json.get("data", [])
+
     template = dict(
         Published=published,
         Modified=modified,
@@ -353,21 +388,21 @@ def tests():
     # ]))
     # print("TimeDelta: {}".format(time.time() - start_time))
 
-    # search_request = {
-    #     "project_id": "5aed6441ba733d37419d5565",
-    #     "organization_id": "5ae05fde9531a003aacdacf8",
-    #     "set_id": "5aed6441ba733d37419d5564",
-    #     "component": {
-    #         "name": "junos",
-    #         "version": "14.1"}}
-    #
-    # start_time = time.time()
-    # fast_search_for_one_vulner_in_json__list_of_items_in_json(search_request)
-    # print("TimeDelta: {}".format(time.time() - start_time))
+    search_request = {
+        "project_id": "5aed6441ba733d37419d5565",
+        "organization_id": "5ae05fde9531a003aacdacf8",
+        "set_id": "5aed6441ba733d37419d5564",
+        "component": {
+            "name": "junos",
+            "version": "14.1"}}
+
+    start_time = time.time()
+    print_list(fast_search_for_one_vulner_in_json__list_of_items_in_json(search_request))
+    print("TimeDelta: {}".format(time.time() - start_time))
     pass
 
 def main():
-    pass
+    tests()
 
 
 if __name__ == '__main__':

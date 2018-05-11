@@ -97,14 +97,16 @@ class vulnerabilities(peewee.Model):
     published = peewee.DateTimeField(default=datetime.now,)
     modified = peewee.DateTimeField(default=datetime.now,)
 
-    access = peewee.TextField(default='{"vector": "", "complexity": "", "authentication": ""}')
-    impact = peewee.TextField(default='{"confidentiality": "", "integrity": "", "availability": ""}')
+    access = peewee.TextField(default='{"vector": "", "complexity": "", "authentication": ""}',)
+    impact = peewee.TextField(default='{"confidentiality": "", "integrity": "", "availability": ""}',)
 
-    vector_string = peewee.TextField(default="")
+    vector_string = peewee.TextField(default="",)
 
-    cvss_time = peewee.DateTimeField(default=datetime.now)
+    cvss_time = peewee.DateTimeField(default=datetime.now,)
 
-    cvss = peewee.FloatField(default=0.0)
+    cvss = peewee.FloatField(default=0.0,)
+
+    capec = peewee.TextField(default='{"data":[]}',)
 
     def __unicode__(self):
         return "vulnerabilities"
@@ -133,7 +135,8 @@ class vulnerabilities(peewee.Model):
             impact=self.impact,
             vector_string=self.vector_string,
             cvss_time=self.cvss_time,
-            cvss=self.cvss
+            cvss=self.cvss,
+            capec=self.capec
         )
 
 

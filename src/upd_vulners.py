@@ -140,6 +140,36 @@ def if_item_already_exists_in_vulnerabilities_table__ids(component, version, cve
 ##############################################################################
 
 def create_record_in_vulnerabilities_table__vulner_id(item_to_create):
+    # get capec info
+
+    # get cwes from item
+    cwes_in_item = item_to_create.get("cwe", '{"data": []}')
+
+    cwes_list = cwes_in_item.get("data", [])
+
+    capec_list = []
+
+    for cwe in cwes_list:
+        capec = list(CAPEC.select().where(
+            (CAPEC.related_weakness.contains(
+                cwe
+            ))
+        ))
+        for capec_element in capec:
+            # capec_elements_in_json = capec_element.to_json
+            capec_list.append(json.dumps(
+                dict(
+                    id=re.sub("\D", "", str(capec_element.capec_id)),
+                    name=capec_element.name,
+                    summary=capec_element.summary,
+                    prerequisites=capec_element.prerequisites,
+                    solutions=capec_element.solutions,
+                    related_weakness=capec_element.related_weakness
+                )
+            ))
+
+
+    # update vulner
     vulner = vulnerabilities(
         component=item_to_create.get("component", ""),
         version=item_to_create.get("version", ""),
@@ -158,7 +188,8 @@ def create_record_in_vulnerabilities_table__vulner_id(item_to_create):
         impact=item_to_create.get("impact", '{}'),
         vector_string=item_to_create.get("vector_string", ""),
         cvss_time=item_to_create.get("cvss_time", str(datetime.utcnow())),
-        cvss=item_to_create.get("cvss", 0.0)
+        cvss=item_to_create.get("cvss", 0.0),
+        capec=json.dumps({"data": capec_list})
     )
     vulner.save()
     return vulner.id
@@ -203,6 +234,11 @@ def update_vulner_in_database__vulner_id(item_to_update, item_id_in_database):
         vulner_from_database.modified = unify_time(item_to_update["modified"])
     if was_modified:
         vulner_from_database.save()
+
+
+    # TODO: append new fields
+
+
     return vulner_from_database.id
 
 ##############################################################################
@@ -390,8 +426,8 @@ def drop_all_tables_in_postgres():
     if SETTINGS["postgres"]["drop_before"]:
         print('Table ~vulnerabilities~ will be drop according SETTINGS ~drop_before~ parameter.')
         connect_database()
-        CAPEC.delete()
-        CWE.delete()
-        INFO.delete()
-        vulnerabilities.delete()
+        CAPEC.drop_table()
+        CWE.drop_table()
+        INFO.drop_table()
+        vulnerabilities.drop_table()
         disconnect_database()
