@@ -5,8 +5,9 @@ import urllib
 import string
 import cpe as cpe_module
 from datetime import datetime
+from dateutil.parser import parse as parse_datetime
 
-from models import vulnerabilities
+from models import vulnerabilities, INFO
 
 from utils import get_file
 from utils import unify_time
@@ -260,12 +261,29 @@ def populate_vulners_from_source__counts():
 
         parsed_cve_items = parse_cve_file__list_json(cve_item)
 
-        items_to_populate = filter_items_to_update__list_of_items(parsed_cve_items)
+        last_modified = parse_datetime(response.headers["last-modified"], ignoretz=True)
 
-        update_vulnerabilities_table__counts(items_to_populate)
+        info, created = INFO.get_or_create(name="cve-{}".format(year))
+        if not created:
+            if info.last_modified != "":
+                info_last_modified = datetime.strptime(info.last_modified, '%Y-%m-%d %H:%M:%S')
+            else:
+                info_last_modified = datetime.strptime(datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                                                       '%Y-%m-%d %H:%M:%S')
+        else:
+            info_last_modified = datetime.strptime(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S')
 
-        count_of_parsed_cve_items += len(parsed_cve_items)
-        count_of_populated_items += len(items_to_populate)
+        if info_last_modified != last_modified:
+            info.last_modified = last_modified
+            info.save()
+
+            items_to_populate = filter_items_to_update__list_of_items(parsed_cve_items)
+
+            update_vulnerabilities_table__counts(items_to_populate)
+
+            count_of_parsed_cve_items += len(parsed_cve_items)
+            count_of_populated_items += len(items_to_populate)
+
     return count_of_parsed_cve_items, count_of_populated_items, time.time() - start_time
 
 ##############################################################################
@@ -283,12 +301,28 @@ def update_modified_vulners_from_source__counts():
     modified_items, response = download_cve_file(SETTINGS["sources"]["cve_modified"])
     modified_parsed = parse_cve_file__list_json(modified_items)
 
-    items_to_update = filter_items_to_update__list_of_items(modified_parsed)
+    last_modified = parse_datetime(response.headers["last-modified"], ignoretz=True)
 
-    update_vulnerabilities_table__counts(items_to_update)
+    info, created = INFO.get_or_create(name="cve-modified")
+    if not created:
+        if info.last_modified != "":
+            info_last_modified = datetime.strptime(info.last_modified, '%Y-%m-%d %H:%M:%S')
+        else:
+            info_last_modified = datetime.strptime(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S')
+    else:
+        info_last_modified = datetime.strptime(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S')
 
-    count_of_parsed_cve_items = len(modified_parsed)
-    count_of_updated_items = len(items_to_update)
+    if info_last_modified != last_modified:
+        info.last_modified = last_modified
+        info.save()
+
+        items_to_update = filter_items_to_update__list_of_items(modified_parsed)
+
+        update_vulnerabilities_table__counts(items_to_update)
+
+        count_of_parsed_cve_items = len(modified_parsed)
+        count_of_updated_items = len(items_to_update)
+
     return count_of_parsed_cve_items, count_of_updated_items, time.time() - start_time
 
 ##############################################################################
@@ -306,12 +340,28 @@ def update_recent_vulners_from_source__counts():
     recent_items, response = download_cve_file(SETTINGS["sources"]["cve_recent"])
     recent_parsed = parse_cve_file__list_json(recent_items)
 
-    items_to_update = filter_items_to_update__list_of_items(recent_parsed)
+    last_modified = parse_datetime(response.headers["last-modified"], ignoretz=True)
 
-    update_vulnerabilities_table__counts(items_to_update)
+    info, created = INFO.get_or_create(name="cve-recent")
+    if not created:
+        if info.last_modified != "":
+            info_last_modified = datetime.strptime(info.last_modified, '%Y-%m-%d %H:%M:%S')
+        else:
+            info_last_modified = datetime.strptime(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S')
+    else:
+        info_last_modified = datetime.strptime(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S')
 
-    count_of_parsed_cve_items = len(recent_parsed)
-    count_of_updated_items = len(items_to_update)
+    if info_last_modified != last_modified:
+        info.last_modified = last_modified
+        info.save()
+
+        items_to_update = filter_items_to_update__list_of_items(recent_parsed)
+
+        update_vulnerabilities_table__counts(items_to_update)
+
+        count_of_parsed_cve_items = len(recent_parsed)
+        count_of_updated_items = len(items_to_update)
+
     return count_of_parsed_cve_items, count_of_updated_items, time.time() - start_time
 
 ##############################################################################
