@@ -38,12 +38,12 @@ class CWE(peewee.Model):
             cwe_id=self.cwe_id,
             name=self.name,
             status=self.status,
-            weaknessabs=self.weaknessabs,
+            weaknesses=self.weaknesses,
             description_summary=self.description_summary
         )
 
 
-class capec:
+class CAPEC(peewee.Model):
     class Meta:
         database = database
         ordering = ("capec_id",)
@@ -121,3 +121,32 @@ class vulnerabilities(peewee.Model):
             published=self.published,
             modified=self.modified
         )
+
+
+class INFO(peewee.Model):
+    class Meta:
+        database = database
+        table_name = "info"
+
+    name = peewee.TextField(
+        default="",
+        verbose_name="Collection name"
+    )
+    last_modified = peewee.TextField(
+        default="",
+        verbose_name="Last modified time"
+    )
+
+    def __unicode__(self):
+        return "INFO"
+
+    @property
+    def data(self):
+        info_data = {}
+        info_data["id"] = self.id
+        info_data["name"] = self.name
+        info_data["last_modified"] = self.last_modified
+        return info_data
+
+    def save(self, *args, **kwargs):
+        super(INFO, self).save(*args, **kwargs)

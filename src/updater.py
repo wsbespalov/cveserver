@@ -14,9 +14,9 @@ from dateutil.parser import parse as parse_datetime
 from settings import SETTINGS
 from upd_vulners import *
 from upd_cwe import action_update_cwe
+from upd_capec import action_update_capec
 from searcher import *
 
-from models import *
 
 def action_populate_databases():
     print("Start population of database")
@@ -45,6 +45,8 @@ def action_update_recent_elements():
 
 def main():
     print(action_update_cwe())
+    print(action_update_capec())
+
     # TODO: Correct     reformat_vulner_for_output__json
 
 

@@ -1,5 +1,4 @@
 import time
-import peewee
 from xml.sax import make_parser
 from xml.sax.handler import ContentHandler
 
@@ -14,7 +13,7 @@ from database import disconnect_database
 from utils import get_file
 from utils import progressbar
 
-from models import CWE
+from models import CWE, INFO
 
 
 class CWEHandler(ContentHandler):
@@ -27,7 +26,7 @@ class CWEHandler(ContentHandler):
         if name == 'Weakness':
             self.weakness_tag = True
             self.statement = ""
-            self.weaknessabs = attrs.get('Weakness_Abstraction')
+            self.weaknesses = attrs.get('Weakness_Abstraction')
             self.name = attrs.get('Name')
             self.idname = attrs.get('ID')
             self.status = attrs.get('Status')
@@ -35,7 +34,7 @@ class CWEHandler(ContentHandler):
                 'name': self.name,
                 'id': self.idname,
                 'status': self.status,
-                'weaknessabs': self.weaknessabs})
+                'weaknessabs': self.weaknesses})
         elif name == 'Description_Summary' and self.weakness_tag:
             self.description_summary_tag = True
             self.description_summary = ""
@@ -57,6 +56,8 @@ class CWEHandler(ContentHandler):
 
 def action_update_cwe():
     connect_database()
+
+    INFO.create_table()
 
     CWE.create_table()
 
@@ -80,57 +81,72 @@ def action_update_cwe():
             message='Update Database CWE: Cant download file: {}'.format(source)
         )
 
-    parser.parse(data)
+    last_modified = parse_datetime(response.headers['last-modified'], ignoretz=True)
 
-    for cwe in cwe_handler.cwe:
-        cwe['description_summary'] = cwe['description_summary'].replace("\t\t\t\t\t", " ")
-        parsed_items.append(cwe)
-
-    for item in progressbar(parsed_items, prefix="Update Database CWE: "):
-        item_id = "CWE-" + item["id"]
-
-        item_name = item.get("name", "")
-        item_status = item.get("status", "")
-        item_weaknessabs = item.get("weaknessabs", "")
-        item_description_summary = item.get("description_summary", "")
-
-        cwe_selected = CWE.get_or_none(CWE.cwe_id == item_id)
-
-        if cwe_selected is None:
-            cwe_created = CWE(
-                cwe_id=item_id,
-                name=item_name,
-                status=item_status,
-                weaknesses=item_weaknessabs,
-                description_summary=item_description_summary
-            )
-            cwe_created.save()
-
+    info, created = INFO.get_or_create(name="cwe")
+    if not created:
+        if info.last_modified != "":
+            info_last_modified = datetime.strptime(info.last_modified, '%Y-%m-%d %H:%M:%S')
         else:
-            if cwe_selected.name == item_name and \
-                    cwe_selected.status == item_status and \
-                    cwe_selected.weaknessabs == item_weaknessabs and \
-                    cwe_selected.description_summary == item_description_summary:
-                pass
+            info_last_modified = datetime.strptime(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S')
+    else:
+        info_last_modified = datetime.strptime(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S')
+
+    if info_last_modified != last_modified:
+        info.last_modified = last_modified
+        info.save()
+
+        parser.parse(data)
+
+        for cwe in cwe_handler.cwe:
+            cwe['description_summary'] = cwe['description_summary'].replace("\t\t\t\t\t", " ")
+            parsed_items.append(cwe)
+
+        for item in progressbar(parsed_items, prefix="Update Database CWE: "):
+            item_id = "CWE-" + item["id"]
+
+            item_name = item.get("name", "")
+            item_status = item.get("status", "")
+            item_weaknesses = item.get("weaknesses", "")
+            item_description_summary = item.get("description_summary", "")
+
+            cwe_selected = CWE.get_or_none(CWE.cwe_id == item_id)
+
+            if cwe_selected is None:
+                cwe_created = CWE(
+                    cwe_id=item_id,
+                    name=item_name,
+                    status=item_status,
+                    weaknesses=item_weaknesses,
+                    description_summary=item_description_summary
+                )
+                cwe_created.save()
+
             else:
-                cwe_selected.name = item_name
-                cwe_selected.status = item_status
-                cwe_selected.weaknessabs = item_weaknessabs
-                cwe_selected.description_summary = item_description_summary
-                cwe_selected.save()
+                if cwe_selected.name == item_name and \
+                        cwe_selected.status == item_status and \
+                        cwe_selected.weaknesses == item_weaknesses and \
+                        cwe_selected.description_summary == item_description_summary:
+                    pass
+                else:
+                    cwe_selected.name = item_name
+                    cwe_selected.status = item_status
+                    cwe_selected.weaknessabs = item_weaknesses
+                    cwe_selected.description_summary = item_description_summary
+                    cwe_selected.save()
 
-    stop_time = time.time()
+        stop_time = time.time()
 
-    disconnect_database()
+        disconnect_database()
+
+        return dict(
+            items=len(parsed_items),
+            time_delta=stop_time - start_time,
+            message="Update Database CWE: Complete."
+        )
 
     return dict(
-        items=len(parsed_items),
-        time_delta=stop_time - start_time,
-        message="Update Database CWE: Complete."
+        items=0,
+        time_delta=0,
+        message="Update Database CWE: Not modified"
     )
-
-    # return dict(
-    #     items=0,
-    #     time_delta=0,
-    #     message="Update Database CWE: Not modified"
-    # )
