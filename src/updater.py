@@ -44,10 +44,12 @@ def action_update_recent_elements():
 ##############################################################################
 
 def main():
+    drop_all_tables_in_postgres()
     print(action_update_cwe())
     print(action_update_capec())
-
-    # TODO: Correct     reformat_vulner_for_output__json
+    print(action_populate_databases())
+    print(action_update_modified_elements())
+    print(action_update_recent_elements())
 
 
     pass

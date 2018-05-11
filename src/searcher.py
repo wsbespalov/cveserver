@@ -1,6 +1,6 @@
 import re
 import sys
-
+from math import floor
 from settings import SETTINGS
 from utils import *
 from caches import cache
@@ -224,25 +224,34 @@ def only_digits(var):
 def reformat_vulner_for_output__json(item_to_reformat):
     published = unify_time(item_to_reformat.get("publushed", datetime.utcnow()))
     modified = unify_time(item_to_reformat.get("modified", datetime.utcnow()))
-    access = item_to_reformat.get("access", dict(
+    access = item_to_reformat.get("access", dict( # not yet +
             vector="",
             complexity="",
             authentication=""
         ))
-    impact = item_to_reformat.get("impact", dict(
+    impact = item_to_reformat.get("impact", dict( # not yet +
             confidentiality="",
             integrity="",
             availability=""
         ))
-    cvss_time = unify_time(item_to_reformat.get("cvss_time", datetime.utcnow()))
-    cvss = float(item_to_reformat.get("cvss", "0.0"))
-    cwe_json = item_to_reformat.get("cwe", "")
+    vector_string = item_to_reformat.get("vector_string", "")
+    cvss_time = unify_time(item_to_reformat.get("cvss_time", datetime.utcnow())) # not yet +
+    cvss = item_to_reformat.get("cvss", 0.0) # not yet +
+    cwe_json = item_to_reformat.get("cwe", {})
     cwe_list = cwe_json.get("data", [])
-    if len(cwe_list) > 0:
-        cwe = cwe_list[0]
-    else:
-        cwe = ""
-    cwe_id = only_digits(cwe)
+    cwe_id_list = []
+    for cwe_in_list in cwe_list:
+        cwe_id_list.append(only_digits(cwe_in_list))
+    title = item_to_reformat.get("cve_id", "")
+    description = item_to_reformat.get("description", "")
+    # rank = item_to_reformat.get("rank", "") # not yet +
+    rank = floor(cvss)
+    # __v = item_to_reformat.get("__v", "") # not yet +
+    __v = 0
+    capec = item_to_reformat.get("capec", []) # not yet
+    vulnerable_configurations = []
+    vulnerable_configuration = item_to_reformat.get("vulnerable_configuration", [])
+    cve_references = item_to_reformat.get("references", [])
     template = dict(
         Published=published,
         Modified=modified,
@@ -250,16 +259,17 @@ def reformat_vulner_for_output__json(item_to_reformat):
         impact=impact,
         cvss_time=cvss_time,
         cvss=cvss,
-        cwe=cwe,
-        cwe_id=cwe_id,
-        title=item_to_reformat.get("cve_id", ""),
-        description=item_to_reformat.get("description", ""),
-        rank=item_to_reformat.get("rank", ""),
-        __v=item_to_reformat.get("__v", ""),
-        capec=item_to_reformat.get("capec", []),
-        vulnerable_configurations=item_to_reformat.get("vulnerable_configurations", []),
-        vulnerable_configuration=item_to_reformat.get("cpe", []),
-        cve_references=item_to_reformat.get("references", [])
+        cwe=cwe_list,
+        cwe_id=cwe_id_list,
+        title=title,
+        description=description,
+        rank=rank,
+        __v=__v,
+        capec=capec,
+        vulnerable_configurations=vulnerable_configurations,
+        vulnerable_configuration=vulnerable_configuration,
+        cve_references=cve_references,
+        vector_string=vector_string
     )
     return template
 

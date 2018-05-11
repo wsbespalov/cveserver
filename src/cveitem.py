@@ -54,6 +54,28 @@ class CVEItem(object):
         self.published = data.get("publishedDate", datetime.utcnow())
         self.modified = data.get("lastModifiedDate", datetime.utcnow())
 
+        # access
+        impact = data.get("impact", {})
+
+        self.access = {}
+        baseMetricV2 = impact.get("baseMetricV2", {})
+        cvssV2 = baseMetricV2.get("cvssV2", {})
+        self.access["vector"] = cvssV2.get("accessVector", "")
+        self.access["complexity"] = cvssV2.get("accessComplexity", "")
+        self.access["authentication"] = cvssV2.get("authentication", "")
+
+        # impact
+        self.impact = {}
+        self.impact["confidentiality"] = cvssV2.get("confidentialityImpact", "")
+        self.impact["integrity"] = cvssV2.get("integrityImpact", "")
+        self.impact["availability"] = cvssV2.get("availabilityImpact", "")
+
+        # vector_string
+        self.vector_string = cvssV2.get("vectorString", "")
+
+        # baseScore - cvss
+        self.cvss = cvssV2.get("baseScore", "")
+
         # Additional fields
         self.component = ""
         self.version = ""

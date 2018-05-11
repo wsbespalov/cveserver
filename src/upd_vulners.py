@@ -7,7 +7,7 @@ import cpe as cpe_module
 from datetime import datetime
 from dateutil.parser import parse as parse_datetime
 
-from models import vulnerabilities, INFO
+from models import vulnerabilities, INFO, CAPEC, CWE
 
 from utils import get_file
 from utils import unify_time
@@ -29,19 +29,22 @@ def download_cve_file(source):
     try:
         result = json.load(file_stream)
         if "CVE_Items" in result:
-            return result["CVE_Items"], response_info
+            CVE_data_timestamp = result.get("CVE_data_timestamp", unify_time(datetime.utcnow()))
+            return result["CVE_Items"], CVE_data_timestamp, response_info
         return None
     except json.JSONDecodeError as json_error:
         print('Get an JSON decode error: {}'.format(json_error))
         return None
 
 
-def parse_cve_file__list_json(items=None):
+def parse_cve_file__list_json(items=None, CVE_data_timestamp=unify_time(datetime.utcnow())):
     if items is None:
         items = []
     parsed_items = []
     for item in items:
-        parsed_items.append(json.loads(CVEItem(item).to_json()))
+        element = json.loads(CVEItem(item).to_json())
+        element["cvss_time"] = CVE_data_timestamp
+        parsed_items.append(element)
     return parsed_items
 
 ##############################################################################
@@ -150,7 +153,12 @@ def create_record_in_vulnerabilities_table__vulner_id(item_to_create):
         cpe=item_to_create.get("cpe", ""),
         vulnerable_configuration=item_to_create.get("vulnerable_configuration", '{"data": []}'),
         published=item_to_create.get("published", str(datetime.utcnow())),
-        modified=item_to_create.get("modified", str(datetime.utcnow()))
+        modified=item_to_create.get("modified", str(datetime.utcnow())),
+        access=item_to_create.get("access", '{}'),
+        impact=item_to_create.get("impact", '{}'),
+        vector_string=item_to_create.get("vector_string", ""),
+        cvss_time=item_to_create.get("cvss_time", str(datetime.utcnow())),
+        cvss=item_to_create.get("cvss", 0.0)
     )
     vulner.save()
     return vulner.id
@@ -257,9 +265,9 @@ def populate_vulners_from_source__counts():
         print("Populate CVE-{}".format(year))
         source = SETTINGS["sources"]["cve_base"] + str(year) + SETTINGS["sources"]["cve_base_postfix"]
 
-        cve_item, response = download_cve_file(source)
+        cve_item, CVE_data_timestamp, response = download_cve_file(source)
 
-        parsed_cve_items = parse_cve_file__list_json(cve_item)
+        parsed_cve_items = parse_cve_file__list_json(cve_item, CVE_data_timestamp)
 
         last_modified = parse_datetime(response.headers["last-modified"], ignoretz=True)
 
@@ -298,8 +306,8 @@ def update_modified_vulners_from_source__counts():
     count_of_parsed_cve_items = 0
     count_of_updated_items = 0
 
-    modified_items, response = download_cve_file(SETTINGS["sources"]["cve_modified"])
-    modified_parsed = parse_cve_file__list_json(modified_items)
+    modified_items, CVE_data_timestamp, response = download_cve_file(SETTINGS["sources"]["cve_modified"])
+    modified_parsed = parse_cve_file__list_json(modified_items, CVE_data_timestamp)
 
     last_modified = parse_datetime(response.headers["last-modified"], ignoretz=True)
 
@@ -337,8 +345,8 @@ def update_recent_vulners_from_source__counts():
     count_of_parsed_cve_items = 0
     count_of_updated_items = 0
 
-    recent_items, response = download_cve_file(SETTINGS["sources"]["cve_recent"])
-    recent_parsed = parse_cve_file__list_json(recent_items)
+    recent_items, CVE_data_timestamp, response = download_cve_file(SETTINGS["sources"]["cve_recent"])
+    recent_parsed = parse_cve_file__list_json(recent_items, CVE_data_timestamp)
 
     last_modified = parse_datetime(response.headers["last-modified"], ignoretz=True)
 
@@ -378,9 +386,12 @@ def get_vulners_table_count():
 # Drop vulnerabilities table.
 ##############################################################################
 
-def drop_vulners_table():
+def drop_all_tables_in_postgres():
     if SETTINGS["postgres"]["drop_before"]:
         print('Table ~vulnerabilities~ will be drop according SETTINGS ~drop_before~ parameter.')
         connect_database()
+        CAPEC.delete()
+        CWE.delete()
+        INFO.delete()
         vulnerabilities.delete()
         disconnect_database()
