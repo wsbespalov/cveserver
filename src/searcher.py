@@ -4,7 +4,7 @@ import time
 from math import floor
 from settings import SETTINGS
 from utils import *
-from caches import cache
+from caches import cache, queue
 from database import *
 from models import vulnerabilities
 
@@ -354,6 +354,19 @@ def fast_search_for_one_vulner_in_json__list_of_items_in_json(item_to_search):
         )
     return reformatted_items
 
+##############################################################################
+# Scan queue for keys
+##############################################################################
+
+def scan_queue_for_keys():
+    mask = SETTINGS["queue"]["prefix_requests"] + "*"
+    mykeys = []
+    try:
+        mykeys = queue.keys(mask)
+    except Exception as ex:
+        print("{}".format(ex))
+    return mykeys
+
 def tests():
     # start_time = time.time()
     # print_list(find_vulner_in_postgres_by_cve_id__list_of_items("CVE-2018-0001"))
@@ -388,20 +401,95 @@ def tests():
     # ]))
     # print("TimeDelta: {}".format(time.time() - start_time))
 
-    search_request = {
-        "project_id": "5aed6441ba733d37419d5565",
-        "organization_id": "5ae05fde9531a003aacdacf8",
-        "set_id": "5aed6441ba733d37419d5564",
-        "component": {
-            "name": "junos",
-            "version": "14.1"}}
+    # search_request = {
+    #     "project_id": "5aed6441ba733d37419d5565",
+    #     "organization_id": "5ae05fde9531a003aacdacf8",
+    #     "set_id": "5aed6441ba733d37419d5564",
+    #     "component": {
+    #         "name": "junos",
+    #         "version": "14.1"}}
+    #
+    # start_time = time.time()
+    # print_list(fast_search_for_one_vulner_in_json__list_of_items_in_json(search_request))
+    # print("TimeDelta: {}".format(time.time() - start_time))
 
-    start_time = time.time()
-    print_list(fast_search_for_one_vulner_in_json__list_of_items_in_json(search_request))
-    print("TimeDelta: {}".format(time.time() - start_time))
+    channel_to_subscribe = SETTINGS["queue"]["channel"]
+    queue_with_requests = SETTINGS["queue"]["prefix_requests"]
+    queue_with_results = SETTINGS["queue"]["prefix_results"]
+
+    subscriber = queue.pubsub()
+    subscriber.subscribe([channel_to_subscribe])
+
+    for message in subscriber.listen():
+        # For every message in this channel - scan cache for prefix_requests messages
+        data = message.get("data", {})
+        if data == 1:
+            pass
+        else:
+            if isinstance(data, bytes):
+                data = data.decode("utf-8")
+            elif isinstance(data, dict):
+                pass
+            if data == "DIE":
+                print("Close connection")
+                subscriber.unsubscribe(channel_to_subscribe)
+                break
+            else:
+                # Work with
+                start_time = time.time()
+                mask = SETTINGS["queue"]["prefix_requests"]
+                # Scan queue for keys
+                mykeys = scan_queue_for_keys()
+                # For every key
+                for one_key in mykeys:
+                    if isinstance(one_key, bytes):
+                        key = one_key.decode("utf-8")
+                    # Get one id
+                    id = key.replace(mask, "")
+                    # Create new collection name for search results
+                    new_collection_name = SETTINGS["queue"]["prefix_results"] + id
+                    # Get content of collection
+                    collection_content = []
+                    try:
+                        collection_content = queue.lrange(key, 0, -1)
+                    except Exception as ex:
+                        pass
+                    # For every content element
+                    for content in collection_content:
+                        search_result = []
+                        content_for_search = {}
+                        if isinstance(content, str):
+                            content_for_search = deserialize_as_json__for_cache(content)
+                        elif isinstance(content, bytes):
+                            content_decoded = content.decode("utf-8")
+                            content_for_search = deserialize_json__for_postgres(content_decoded)
+                        elif isinstance(content, dict):
+                            pass
+                        else:
+                            continue
+                        search_result = fast_search_for_one_vulner_in_json__list_of_items_in_json(
+                            content_for_search
+                        )
+                        # print_list(search_result)
+                        for one_search_result in search_result:
+                            try:
+                                queue.rpush(
+                                    new_collection_name,
+                                    serialize_as_json__for_cache(
+                                        one_search_result
+                                    )
+                                )
+                            except Exception as ex:
+                                pass
+                    pass
+                print('TimeDelta: {}'.format(time.time() - start_time))
+                pass
+            # print(data)
+        pass
     pass
 
 def main():
+    # TODO: Needs to delete search::id queue after creating of create::id
     tests()
 
 

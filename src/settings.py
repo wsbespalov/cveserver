@@ -29,7 +29,15 @@ SETTINGS = {
         "db": 3,
         "separator": "::",
         "index": "index",
-        "key_expire_time_in_sec": 10 # 1 minute for tests
+        "key_expire_time_in_sec": 30 # 1 minute for tests
+    },
+    "queue": {
+        "host": 'localhost',
+        "port": 6379,
+        "db": 0,
+        "prefix_requests": "search::",
+        "prefix_results": "create::",
+        "channel": "start_processing"
     },
     "debug": True
 }
