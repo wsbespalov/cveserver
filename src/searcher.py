@@ -440,14 +440,16 @@ def run():
                 mask = SETTINGS["queue"]["prefix_requests"]
                 # Scan queue for keys
                 mykeys = scan_queue_for_keys()
+                # ID for request and complete message
+                id_of_request = ""
                 # For every key
                 for one_key in mykeys:
                     if isinstance(one_key, bytes):
                         key = one_key.decode("utf-8")
                     # Get one id
-                    id = key.replace(mask, "")
+                    id_of_request = key.replace(mask, "")
                     # Create new collection name for search results
-                    new_collection_name = SETTINGS["queue"]["prefix_results"] + id
+                    new_collection_name = SETTINGS["queue"]["prefix_results"] + id_of_request
                     # Get content of collection
                     collection_content = []
                     try:
@@ -506,6 +508,12 @@ def run():
                     except Exception as ex:
                         pass
                     pass
+                # Publish message to channel for search complete
+                complete_message = SETTINGS["queue"]["complete_message"] + id_of_request
+                queue.publish(
+                    channel=channel_to_subscribe,
+                    message=complete_message
+                )
                 print('TimeDelta: {}'.format(time.time() - start_time))
                 pass
             # print(data)

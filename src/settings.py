@@ -37,7 +37,8 @@ SETTINGS = {
         "db": 0,
         "prefix_requests": "search::",
         "prefix_results": "create::",
-        "channel": "start_processing"
+        "channel": "start_processing",
+        "complete_message": "complete::"
     },
     "debug": True
 }
