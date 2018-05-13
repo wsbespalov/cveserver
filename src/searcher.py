@@ -367,7 +367,7 @@ def scan_queue_for_keys():
         print("{}".format(ex))
     return mykeys
 
-def tests():
+def run():
     # start_time = time.time()
     # print_list(find_vulner_in_postgres_by_cve_id__list_of_items("CVE-2018-0001"))
     # print("TimeDelta: {}".format(time.time() - start_time))
@@ -470,17 +470,41 @@ def tests():
                         search_result = fast_search_for_one_vulner_in_json__list_of_items_in_json(
                             content_for_search
                         )
-                        # print_list(search_result)
                         for one_search_result in search_result:
+                            # Append results into structure
+                            # {"project_id": "5aed6441ba733d37419d5565", "organization_id": "5ae05fde9531a003aacdacf8",
+                            #  "set_id": "5aed6441ba733d37419d5564", "component": {"name": "tomcat", "version": "3.0"}}
+                            # -> one_search_result - found item in JSON
                             try:
-                                queue.rpush(
-                                    new_collection_name,
-                                    serialize_as_json__for_cache(
-                                        one_search_result
-                                    )
+                                new_content = dict(
+                                    project_id=content_for_search["project_id"],
+                                    organization_id=content_for_search["organization_id"],
+                                    set_id=content_for_search["set_id"],
+                                    component=dict(
+                                        name=content_for_search["component"]["name"],
+                                        version=content_for_search["component"]["version"]
+                                    ),
+                                    vulnerability=one_search_result
                                 )
+                                # Push into collection
+                                try:
+                                    queue.rpush(
+                                        new_collection_name,
+                                        serialize_as_json__for_cache(
+                                            new_content
+                                        )
+                                    )
+                                except Exception as ex:
+                                    pass
                             except Exception as ex:
                                 pass
+                    try:
+                        # Delete search request
+                        queue.delete(
+                            one_key
+                        )
+                    except Exception as ex:
+                        pass
                     pass
                 print('TimeDelta: {}'.format(time.time() - start_time))
                 pass
@@ -489,8 +513,8 @@ def tests():
     pass
 
 def main():
-    # TODO: Needs to delete search::id queue after creating of create::id
-    tests()
+    print('Searcher started...')
+    run()
 
 
 if __name__ == '__main__':
