@@ -38,6 +38,7 @@ SETTINGS = {
         "prefix_requests": "search::",
         "prefix_results": "create::",
         "channel": "start_processing",
+        "channel_complete": "search_complete",
         "complete_message": "complete::"
     },
     "debug": True

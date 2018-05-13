@@ -414,6 +414,7 @@ def run():
     # print("TimeDelta: {}".format(time.time() - start_time))
 
     channel_to_subscribe = SETTINGS["queue"]["channel"]
+    channel_to_answer = SETTINGS["queue"]["channel_complete"]
     queue_with_requests = SETTINGS["queue"]["prefix_requests"]
     queue_with_results = SETTINGS["queue"]["prefix_results"]
 
@@ -511,7 +512,7 @@ def run():
                 # Publish message to channel for search complete
                 complete_message = SETTINGS["queue"]["complete_message"] + id_of_request
                 queue.publish(
-                    channel=channel_to_subscribe,
+                    channel=channel_to_answer,
                     message=complete_message
                 )
                 print('TimeDelta: {}'.format(time.time() - start_time))
