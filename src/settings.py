@@ -40,7 +40,10 @@ SETTINGS = {
         "channel": "start_processing",
         "message_to_start_search": "start_search",
         "channel_complete": "search_complete",
-        "complete_message": "create::"
+        "complete_message": "create::",
+        "message_to_kill_search": "message_to_kill_search",
+        "modified_queue": "VulnerabilityManagement-CVE:modified",
+        "new_queue": "VulnerabilityManagement-CVE:new"
     },
     "debug": True
 }

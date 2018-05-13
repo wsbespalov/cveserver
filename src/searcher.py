@@ -368,14 +368,15 @@ def scan_queue_for_keys():
     return mykeys
 
 def run():
-    channel_to_subscribe = SETTINGS["queue"]["channel"]
+    channel_to_subscribe_and_publish = SETTINGS["queue"]["channel"]
     message_to_start_search = SETTINGS["queue"]["message_to_start_search"]
+    message_to_kill_search = SETTINGS["queue"]["message_to_kill_search"]
 
     subscriber = queue.pubsub()
-    subscriber.subscribe([channel_to_subscribe])
+    subscriber.subscribe([channel_to_subscribe_and_publish])
 
     for message in subscriber.listen():
-        # For every message in this channel - scan cache for prefix_requests messages
+        # For every message in this channel
         data = message.get("data", {})
         if data == 1:
             pass
@@ -384,10 +385,10 @@ def run():
                 data = data.decode("utf-8")
             elif isinstance(data, dict):
                 pass
-            if data == "DIE":
-                # Message to die
+            if data == message_to_kill_search:
+                # Message to kill search
                 print("Close connection")
-                subscriber.unsubscribe(channel_to_subscribe)
+                subscriber.unsubscribe(channel_to_subscribe_and_publish)
                 break
             elif data == message_to_start_search:
                 # Message to search
@@ -466,7 +467,7 @@ def run():
                 # Publish message to channel for search complete
                 complete_message = SETTINGS["queue"]["complete_message"] + id_of_request
                 queue.publish(
-                    channel=channel_to_subscribe,
+                    channel=channel_to_subscribe_and_publish,
                     message=complete_message
                 )
                 # print('TimeDelta: {}'.format(time.time() - start_time))

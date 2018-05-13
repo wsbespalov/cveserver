@@ -12,6 +12,7 @@ from models import vulnerabilities, INFO, CAPEC, CWE
 from utils import get_file
 from utils import unify_time
 from utils import progressbar
+from utils import serialize_as_json__for_cache
 from utils import serialize_json__for_postgres
 from utils import deserialize_json__for_postgres
 
@@ -19,6 +20,10 @@ from cveitem import CVEItem
 from database import connect_database
 from database import disconnect_database
 from settings import SETTINGS
+
+from caches import queue
+
+channel_to_publish = SETTINGS["queue"]["channel"]
 
 ##############################################################################
 # Download and parse CVE database
@@ -362,7 +367,26 @@ def update_modified_vulners_from_source__counts():
 
         items_to_update = filter_items_to_update__list_of_items(modified_parsed)
 
+        # Update vulners in Postgres
         update_vulnerabilities_table__counts(items_to_update)
+
+        # Push ~modified~ items into collection ~modified~ in Redis
+        for one_item_to_update in items_to_update:
+            try:
+                queue.rpush(
+                    SETTINGS["queue"]["modified_queue"],
+                    serialize_as_json__for_cache(
+                        one_item_to_update
+                    )
+                )
+            except Exception as ex:
+                pass
+
+        # Publish message
+        queue.publish(
+            channel_to_publish,
+            SETTINGS["queue"]["modified_queue"]
+        )
 
         count_of_parsed_cve_items = len(modified_parsed)
         count_of_updated_items = len(items_to_update)
@@ -401,8 +425,26 @@ def update_recent_vulners_from_source__counts():
 
         items_to_update = filter_items_to_update__list_of_items(recent_parsed)
 
+        # Update vulners in Postgres
         update_vulnerabilities_table__counts(items_to_update)
 
+        # Push ~recent~ items into collection ~new~ in Redis
+        for one_item_to_update in items_to_update:
+            try:
+                queue.rpush(
+                    SETTINGS["queue"]["new_queue"],
+                    serialize_as_json__for_cache(
+                        one_item_to_update
+                    )
+                )
+            except Exception as ex:
+                pass
+
+        # Publish message
+        queue.publish(
+            channel_to_publish,
+            SETTINGS["queue"]["new_queue"]
+        )
         count_of_parsed_cve_items = len(recent_parsed)
         count_of_updated_items = len(items_to_update)
 
