@@ -414,9 +414,7 @@ def run():
     # print("TimeDelta: {}".format(time.time() - start_time))
 
     channel_to_subscribe = SETTINGS["queue"]["channel"]
-    channel_to_answer = SETTINGS["queue"]["channel_complete"]
-    queue_with_requests = SETTINGS["queue"]["prefix_requests"]
-    queue_with_results = SETTINGS["queue"]["prefix_results"]
+    message_to_start_search = SETTINGS["queue"]["message_to_start_search"]
 
     subscriber = queue.pubsub()
     subscriber.subscribe([channel_to_subscribe])
@@ -432,12 +430,13 @@ def run():
             elif isinstance(data, dict):
                 pass
             if data == "DIE":
+                # Message to die
                 print("Close connection")
                 subscriber.unsubscribe(channel_to_subscribe)
                 break
-            else:
-                # Work with
-                start_time = time.time()
+            elif data == message_to_start_search:
+                # Message to search
+                # start_time = time.time()
                 mask = SETTINGS["queue"]["prefix_requests"]
                 # Scan queue for keys
                 mykeys = scan_queue_for_keys()
@@ -512,10 +511,13 @@ def run():
                 # Publish message to channel for search complete
                 complete_message = SETTINGS["queue"]["complete_message"] + id_of_request
                 queue.publish(
-                    channel=channel_to_answer,
+                    channel=channel_to_subscribe,
                     message=complete_message
                 )
-                print('TimeDelta: {}'.format(time.time() - start_time))
+                # print('TimeDelta: {}'.format(time.time() - start_time))
+                pass
+            else:
+                # Unprocessing message
                 pass
             # print(data)
         pass
