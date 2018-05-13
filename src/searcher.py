@@ -368,51 +368,6 @@ def scan_queue_for_keys():
     return mykeys
 
 def run():
-    # start_time = time.time()
-    # print_list(find_vulner_in_postgres_by_cve_id__list_of_items("CVE-2018-0001"))
-    # print("TimeDelta: {}".format(time.time() - start_time))
-
-    # start_time = time.time()
-    # print_list(find_list_of_vulners_in_postgres_by_cve_id__list_of_items([
-    #     "CVE-2018-0001",
-    #     "CVE-2018-0003",
-    #     "CVE-2017-9998",
-    #     "CVE-2017-9993",
-    #     "CVE-2017-9992",
-    #     "CVE-2018-0089"]))
-    # print("TimeDelta: {}".format(time.time() - start_time))
-    # print("Complete   updater work.")
-
-    # start_time = time.time()
-    # print_list(find_vulner_in_postgres_by_component_and_version__list_of_items("junos", "14.1"))
-    # print("TimeDelta: {}".format(time.time() - start_time))
-
-    # start_time = time.time()
-    # print_list(find_list_of_vulners_in_postgres_by_component_and_versions_list__list_of_items([
-    #     {"component": "junos", "version": "14.1"},
-    #     {"component": "junos", "version": "14.2"},
-    #     {"component": "ffmpeg", "version": "3.2"},
-    # ]))
-    # print("TimeDelta: {}".format(time.time() - start_time))
-
-    # start_time = time.time()
-    # print_list(find_list_of_vulners_in_postgres_by_component_and_versions_list__list_of_items([
-    #     {"component": "ffmpeg", "version": "3.2*"},
-    # ]))
-    # print("TimeDelta: {}".format(time.time() - start_time))
-
-    # search_request = {
-    #     "project_id": "5aed6441ba733d37419d5565",
-    #     "organization_id": "5ae05fde9531a003aacdacf8",
-    #     "set_id": "5aed6441ba733d37419d5564",
-    #     "component": {
-    #         "name": "junos",
-    #         "version": "14.1"}}
-    #
-    # start_time = time.time()
-    # print_list(fast_search_for_one_vulner_in_json__list_of_items_in_json(search_request))
-    # print("TimeDelta: {}".format(time.time() - start_time))
-
     channel_to_subscribe = SETTINGS["queue"]["channel"]
     message_to_start_search = SETTINGS["queue"]["message_to_start_search"]
 

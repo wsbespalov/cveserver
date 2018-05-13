@@ -40,7 +40,7 @@ SETTINGS = {
         "channel": "start_processing",
         "message_to_start_search": "start_search",
         "channel_complete": "search_complete",
-        "complete_message": "complete::"
+        "complete_message": "create::"
     },
     "debug": True
 }
