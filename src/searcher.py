@@ -1,18 +1,17 @@
 import re
-import sys
-import time
 from math import floor
-from settings import SETTINGS
 from utils import *
 from caches import cache, queue
 from database import *
 from models import vulnerabilities
 
-##############################################################################
-# Find vulner in vulnerabilities table in Postgres by cve_id.
-##############################################################################
 
-def find_vulner_in_postgres_by_cve_id__list_of_items_in_json(cve_id):
+def find_vulner_in_postgres_by_cve_id(cve_id):
+    """
+    Find vulner in vulnerabilities table in PostgresQL by cve_id
+    :param cve_id:
+    :return: list of json items
+    """
     connect_database()
     database_items = list(vulnerabilities.select().where(vulnerabilities.cve_id==cve_id))
     items = []
@@ -23,11 +22,13 @@ def find_vulner_in_postgres_by_cve_id__list_of_items_in_json(cve_id):
     disconnect_database()
     return items
 
-##############################################################################
-# Find list of vulners in vulnerabilities table in Postgres by list of cve_id.
-##############################################################################
 
-def find_list_of_vulners_in_postgres_by_cve_id__list_of_items_in_json(list_of_cve_ids):
+def find_list_of_vulners_in_postgres_by_cve_id(list_of_cve_ids):
+    """
+    Find list of vulners in vulnerabilities table in PostgresQL by list of cve_id
+    :param list_of_cve_ids:
+    :return: list of json items
+    """
     items = []
     if isinstance(list_of_cve_ids, list):
         connect_database()
@@ -38,13 +39,14 @@ def find_list_of_vulners_in_postgres_by_cve_id__list_of_items_in_json(list_of_cv
         disconnect_database()
     return items
 
-##############################################################################
-# Find list of vulners in vulnerabilities table in Postgres
-# by component and version.
-# Return list of Items in JSON format.
-##############################################################################
 
-def find_vulners_in_postgres_by_component_and_version__list_of_items_in_json(component, version):
+def find_vulners_in_postgres_by_component_and_version(component, version):
+    """
+    Find list of vulners in vulnerabilities table in Postgres by component and version
+    :param component:
+    :param version:
+    :return: list of json items
+    """
     connect_database()
     list_of_elements = []
     if "*" in version:
@@ -68,21 +70,18 @@ def find_vulners_in_postgres_by_component_and_version__list_of_items_in_json(com
     disconnect_database()
     return items
 
-##############################################################################
-# Find list of vulners in vulnerabilities table in Postgres
-# by list of components and its versions.
-# Return list of Items in JSON format.
-##############################################################################
 
-def find_list_of_vulners_in_postgres_by_component_and_versions_list__list_of_items_in_json(list_of_component_and_versions):
+def find_list_of_vulners_in_postgres_by_component_and_versions_list(list_of_component_and_versions):
     """
-    Get list if vulners with component and versions.
-    If version contains "*" - slice version and use "startwith".
-    example:
-        version = "1.3.*" -> version = "1.3."
+    Find list of vulners in vulnerabilities table in Postgres by list of components and its versions
     :param list_of_component_and_versions:
-    :return:
+    :return: list of json items
     """
+
+    # If version contains "*" - slice version and use "startswith".
+    # example:
+    #     version = "1.3.*" -> version = "1.3."
+
     items = []
     if isinstance(list_of_component_and_versions, list):
         connect_database()
@@ -113,11 +112,14 @@ def find_list_of_vulners_in_postgres_by_component_and_versions_list__list_of_ite
         disconnect_database()
     return items
 
-##############################################################################
-# Create collectin name for cache search.
-##############################################################################
 
 def create_collection_name_by_component_and_version(component, version):
+    """
+    Create collection name for cache search
+    :param component:
+    :param version:
+    :return: collection name
+    """
     if version is None:
         version = "*"
     if version == "":
@@ -131,12 +133,14 @@ def create_collection_name_by_component_and_version(component, version):
     ])
     return collection_name
 
-##############################################################################
-# Check if item already in cache by component and version.
-# Return list of Items in JSON format.
-##############################################################################
 
-def check_if_item_is_already_cached_in_redis__list_of_items_in_json(component, version):
+def check_if_item_is_already_cached_in_redis(component, version):
+    """
+    Check if item already exists in cache by component and version
+    :param component:
+    :param version:
+    :return: list of json items
+    """
     collection_name = create_collection_name_by_component_and_version(
         component=component,
         version=version
@@ -157,11 +161,13 @@ def check_if_item_is_already_cached_in_redis__list_of_items_in_json(component, v
         )
     return list_of_components
 
-##############################################################################
-# Put Items (in list) into cache.
-##############################################################################
 
 def put_items_into_redis_cache(items_to_cache):
+    """
+    Put list Items into cache
+    :param items_to_cache:
+    :return: item put count
+    """
     count = 0
     for element in items_to_cache:
         component = element.get("component", None)
@@ -188,24 +194,25 @@ def put_items_into_redis_cache(items_to_cache):
     return count
 
 
-##############################################################################
-# Search items by list of components and its versions in Postgres and in Cache.
-##############################################################################
-
 def fast_search_for_list_of_vulners__list_of_items_as_json(list_of_component_and_versions):
+    """
+    Search items by list of components and its versions in PostgresQL and Cache
+    :param list_of_component_and_versions:
+    :return: list of json items
+    """
     ready_items = []
     for item in list_of_component_and_versions:
         if isinstance(item, dict):
             component = item.get("component", None)
             version = item.get("version", None)
             if component is not None and version is not None:
-                items_in_redis = check_if_item_is_already_cached_in_redis__list_of_items_in_json(component, version)
+                items_in_redis = check_if_item_is_already_cached_in_redis(component, version)
                 if len(items_in_redis) > 0:
                     # If item in redis - get data from redis
                     ready_items = ready_items + items_in_redis
                 else:
                     # If item not in redis - get data from postgres
-                    items_in_postgres = find_vulners_in_postgres_by_component_and_version__list_of_items_in_json(
+                    items_in_postgres = find_vulners_in_postgres_by_component_and_version(
                         component=component,
                         version=version
                     )
@@ -329,13 +336,13 @@ def fast_search_for_one_vulner_in_json__list_of_items_in_json(item_to_search):
             component = component_and_version.get("name", None)
             version = component_and_version.get("version", None)
             if component is not None and version is not None:
-                items_in_redis = check_if_item_is_already_cached_in_redis__list_of_items_in_json(component, version)
+                items_in_redis = check_if_item_is_already_cached_in_redis(component, version)
                 if len(items_in_redis) > 0:
                     # If item in redis - get data from redis
                     ready_items = ready_items + items_in_redis
                 else:
                     # If item not in redis - get data from postgres
-                    items_in_postgres = find_vulners_in_postgres_by_component_and_version__list_of_items_in_json(
+                    items_in_postgres = find_vulners_in_postgres_by_component_and_version(
                         component=component,
                         version=version
                     )

@@ -1,8 +1,6 @@
 import peewee
 from settings import SETTINGS
 
-from models import vulnerabilities
-
 POSTGRES = SETTINGS.get("postgres", {})
 database = peewee.PostgresqlDatabase(
     database=POSTGRES.get("database", "updater_db"),
@@ -12,11 +10,12 @@ database = peewee.PostgresqlDatabase(
     port=int(POSTGRES.get("port", 5432))
 )
 
-##############################################################################
-# Connect and disconnect Postgres database.
-##############################################################################
 
 def connect_database():
+    """
+    Connect to PostgresQL DB
+    :return:
+    """
     # database.pragma('cache_size', -1024 * int(SETTINGS["postgres"]["cache_size"]))
     try:
         if database.is_closed():
@@ -24,7 +23,12 @@ def connect_database():
     except peewee.OperationalError as peewee_operational_error:
         pass
 
+
 def disconnect_database():
+    """
+    Disconnect from PostgresQL DB
+    :return:
+    """
     try:
         if not database.is_closed():
             database.close()

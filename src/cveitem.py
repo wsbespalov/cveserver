@@ -1,6 +1,7 @@
 import json
 from datetime import datetime
 
+
 class CVEItem(object):
     def __init__(self, data):
         cve = data.get("cve", {})
@@ -84,4 +85,3 @@ class CVEItem(object):
         return json.dumps(self,
                           default=lambda o: o.__dict__,
                           sort_keys=True)
-
