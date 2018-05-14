@@ -49,23 +49,6 @@ def unify_time(dt):
         return parse_datetime(str(dt))
 
 
-def unify_bool(param):
-    if isinstance(param, bool):
-        if param is False:
-            return 'false'
-        elif param is True:
-            return 'true'
-    elif isinstance(param, str):
-        if param == 'False':
-            return 'false'
-        elif param == 'True':
-            return 'true'
-        elif param == '':
-            return 'false'
-    elif isinstance(param, type(None)):
-        return 'false'
-
-
 def print_list(items_to_print):
     for item in items_to_print:
         print("-> {}".format(item))
