@@ -1,17 +1,3 @@
-import sys
-import re
-
-import pika
-import json
-import time
-import redis
-import urllib
-import peewee
-import string
-from datetime import datetime
-from dateutil.parser import parse as parse_datetime
-
-from settings import SETTINGS
 from upd_vulners import *
 from upd_cwe import action_update_cwe
 from upd_capec import action_update_capec
@@ -25,12 +11,14 @@ def action_populate_databases():
     print("Append     {} populated elements from source in database".format(count_of_populated_items))
     print("TimeDelta  %.2f sec." % (time_delta))
 
+
 def action_update_modified_elements():
     print("Start update modified of database")
     count_of_parsed_cve_items, count_of_updated_items, time_delta = update_modified_vulners_from_source__counts()
     print("Get        {} modified elements from source".format(count_of_parsed_cve_items))
     print("Append     {} modified elements from source in database".format(count_of_updated_items))
     print("TimeDelta  %.2f sec." % (time_delta))
+
 
 def action_update_recent_elements():
     print("Start update recent of database")
@@ -40,9 +28,6 @@ def action_update_recent_elements():
     print("TimeDelta  %.2f sec." % (time_delta))
 
 
-
-##############################################################################
-
 def main():
     drop_all_tables_in_postgres()
     print(action_update_cwe())
@@ -50,12 +35,6 @@ def main():
     print(action_populate_databases())
     print(action_update_modified_elements())
     print(action_update_recent_elements())
-
-
-    pass
-
-
-##############################################################################
 
 
 if __name__ == '__main__':

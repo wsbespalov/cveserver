@@ -25,11 +25,13 @@ from caches import queue
 
 channel_to_publish = SETTINGS["queue"]["channel"]
 
-##############################################################################
-# Download and parse CVE database
-##############################################################################
 
 def download_cve_file(source):
+    """
+    Download CVE file
+    :param source:
+    :return: CVE data, CVE data timestamp and response or None if error
+    """
     file_stream, response_info = get_file(source)
     try:
         result = json.load(file_stream)
@@ -42,7 +44,13 @@ def download_cve_file(source):
         return None
 
 
-def parse_cve_file__list_json(items=None, CVE_data_timestamp=unify_time(datetime.utcnow())):
+def parse_cve_file(items=None, CVE_data_timestamp=unify_time(datetime.utcnow())):
+    """
+    Parse CVE file
+    :param items:
+    :param CVE_data_timestamp:
+    :return: list of json
+    """
     if items is None:
         items = []
     parsed_items = []
@@ -52,11 +60,13 @@ def parse_cve_file__list_json(items=None, CVE_data_timestamp=unify_time(datetime
         parsed_items.append(element)
     return parsed_items
 
-##############################################################################
-# Filter CPE strings in CVE Items for valid component and version values
-##############################################################################
 
 def filter_cpe_string__json(element):
+    """
+    Filter CPE strings in CVE Items for valid component and version values
+    :param element:
+    :return: json
+    """
     result = {
         "component": None,
         "version": None
@@ -79,23 +89,27 @@ def filter_cpe_string__json(element):
 
     return result
 
-##############################################################################
-# Filter Vulners items and create more items for database - one by one item
-# for filtered element in cpe strings in CVE Item
-##############################################################################
 
-def filter_items_to_update__list_of_items(items_fo_filter, unquote=True, only_digits_and_dot_in_version=True):
+def filter_items_to_update(items_fo_filter, unquote=True, only_digits_and_dot_in_version=True):
+    """
+    Filter Vulners items and create more items for database - one by one item
+    for filtered element in cpe strings in CVE Item
+    :param items_fo_filter:
+    :param unquote:
+    :param only_digits_and_dot_in_version:
+    :return: list of items
+    """
     filtered_items = []
     # for item in items_fo_filter:
     for item in progressbar(items_fo_filter, prefix='Filtering  '):
         # For every item in downloaded update
         # Get cpe strings
-        list_of_cpe_ctrings_field = item.get("vulnerable_configuration", {})
-        list_of_cpe_ctrings = list_of_cpe_ctrings_field.get("data", [])
+        list_of_cpe_strings_field = item.get("vulnerable_configuration", {})
+        list_of_cpe_strings = list_of_cpe_strings_field.get("data", [])
         # If list not empty
-        if len(list_of_cpe_ctrings) > 0:
+        if len(list_of_cpe_strings) > 0:
             # For every cpe string
-            for one_cpe_string in list_of_cpe_ctrings:
+            for one_cpe_string in list_of_cpe_strings:
                 # Get one string and check it
                 filtered_cpe_string = filter_cpe_string__json(one_cpe_string)
                 version = filtered_cpe_string.get("version", "")
@@ -115,18 +129,22 @@ def filter_items_to_update__list_of_items(items_fo_filter, unquote=True, only_di
                         if only_digits_and_dot_in_version:
                             allow = string.digits + '.' + '(' + ')'
                             new_item["version"] = re.sub('[^%s]' % allow, '', new_item["version"])
-                        new_item["vulnerable_configuration"] = {"data": list_of_cpe_ctrings}
+                        new_item["vulnerable_configuration"] = {"data": list_of_cpe_strings}
                         new_item["cpe"] = one_cpe_string
                         filtered_items.append(new_item)
                         del new_item
     return filtered_items
 
-##############################################################################
-# Check, if items already exists in Vulnerabilities table by component,
-# version and cve ID. If exists - return list of its IDs.
-##############################################################################
 
-def if_item_already_exists_in_vulnerabilities_table__ids(component, version, cve_id):
+def if_item_already_exists_in_vulnerabilities_table(component, version, cve_id):
+    """
+    Check, if items already exist in Vulnerabilities table by component,
+    version and CVE ID. If exists - return list of its IDs.
+    :param component:
+    :param version:
+    :param cve_id:
+    :return: list of IDs
+    """
     # Get IDs of records
     list_of_elements = list(
         vulnerabilities.select().where(
@@ -272,7 +290,7 @@ def update_vulnerabilities_table__counts(items_to_update):
         if component is not None and \
             version is not None and \
             cve_id is not None:
-            if_records_exists_in_database__ids = if_item_already_exists_in_vulnerabilities_table__ids(component, version, cve_id)
+            if_records_exists_in_database__ids = if_item_already_exists_in_vulnerabilities_table(component, version, cve_id)
             if len(if_records_exists_in_database__ids) > 0:
                 for item_id_in_database in if_records_exists_in_database__ids:
                     update_vulner_in_database__vulner_id(one_item, item_id_in_database)
@@ -308,7 +326,7 @@ def populate_vulners_from_source__counts():
 
         cve_item, CVE_data_timestamp, response = download_cve_file(source)
 
-        parsed_cve_items = parse_cve_file__list_json(cve_item, CVE_data_timestamp)
+        parsed_cve_items = parse_cve_file(cve_item, CVE_data_timestamp)
 
         last_modified = parse_datetime(response.headers["last-modified"], ignoretz=True)
 
@@ -326,7 +344,7 @@ def populate_vulners_from_source__counts():
             info.last_modified = last_modified
             info.save()
 
-            items_to_populate = filter_items_to_update__list_of_items(parsed_cve_items)
+            items_to_populate = filter_items_to_update(parsed_cve_items)
 
             update_vulnerabilities_table__counts(items_to_populate)
 
@@ -348,7 +366,7 @@ def update_modified_vulners_from_source__counts():
     count_of_updated_items = 0
 
     modified_items, CVE_data_timestamp, response = download_cve_file(SETTINGS["sources"]["cve_modified"])
-    modified_parsed = parse_cve_file__list_json(modified_items, CVE_data_timestamp)
+    modified_parsed = parse_cve_file(modified_items, CVE_data_timestamp)
 
     last_modified = parse_datetime(response.headers["last-modified"], ignoretz=True)
 
@@ -365,7 +383,7 @@ def update_modified_vulners_from_source__counts():
         info.last_modified = last_modified
         info.save()
 
-        items_to_update = filter_items_to_update__list_of_items(modified_parsed)
+        items_to_update = filter_items_to_update(modified_parsed)
 
         # Update vulners in Postgres
         update_vulnerabilities_table__counts(items_to_update)
@@ -406,7 +424,7 @@ def update_recent_vulners_from_source__counts():
     count_of_updated_items = 0
 
     recent_items, CVE_data_timestamp, response = download_cve_file(SETTINGS["sources"]["cve_recent"])
-    recent_parsed = parse_cve_file__list_json(recent_items, CVE_data_timestamp)
+    recent_parsed = parse_cve_file(recent_items, CVE_data_timestamp)
 
     last_modified = parse_datetime(response.headers["last-modified"], ignoretz=True)
 
@@ -423,7 +441,7 @@ def update_recent_vulners_from_source__counts():
         info.last_modified = last_modified
         info.save()
 
-        items_to_update = filter_items_to_update__list_of_items(recent_parsed)
+        items_to_update = filter_items_to_update(recent_parsed)
 
         # Update vulners in Postgres
         update_vulnerabilities_table__counts(items_to_update)

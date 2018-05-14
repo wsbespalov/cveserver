@@ -38,6 +38,7 @@ def convert_list_data_to_json(data):
     else:
         return []
 
+
 def unify_time(dt):
     if isinstance(dt, str):
         if 'Z' in dt:
@@ -46,6 +47,7 @@ def unify_time(dt):
 
     if isinstance(dt, datetime):
         return parse_datetime(str(dt))
+
 
 def unify_bool(param):
     if isinstance(param, bool):
@@ -63,9 +65,11 @@ def unify_bool(param):
     elif isinstance(param, type(None)):
         return 'false'
 
+
 def print_list(items_to_print):
     for item in items_to_print:
         print("-> {}".format(item))
+
 
 def print_short(items_to_print):
     for item in items_to_print:
@@ -76,14 +80,17 @@ def print_short(items_to_print):
             item["cpe"],
             item["vulnerable_configuration"]["data"]))
 
+
 def serialize_json__for_postgres(source):
     return json.dumps(ast.literal_eval(source))
+
 
 def deserialize_json__for_postgres(source):
     a = ast.literal_eval(source)
     if isinstance(a, dict):
         return a
     return json.loads(a)
+
 
 def serialize_as_json__for_cache(element):
     def dt_converter(o):
@@ -95,11 +102,13 @@ def serialize_as_json__for_cache(element):
         print("{}".format(ex))
         return None
 
+
 def deserialize_as_json__for_cache(element):
     try:
         return json.loads(element)
     except:
         return None
+
 
 def progressbar(it, prefix="Processing ", size=50):
     count = len(it)
