@@ -139,7 +139,7 @@ def filter_items_to_update(items_fo_filter, unquote=True, only_digits_and_dot_in
 def if_item_already_exists_in_vulnerabilities_table(component, version, cve_id):
     """
     Check, if items already exist in Vulnerabilities table by component,
-    version and CVE ID. If exists - return list of its IDs.
+    version and CVE ID. If exists - return list of its IDs
     :param component:
     :param version:
     :param cve_id:
@@ -158,11 +158,13 @@ def if_item_already_exists_in_vulnerabilities_table(component, version, cve_id):
         list_of_ids.append(element.id)
     return list_of_ids
 
-##############################################################################
-# Create record in vulnerabilities table and return its ID.
-##############################################################################
 
-def create_record_in_vulnerabilities_table__vulner_id(item_to_create):
+def create_record_in_vulnerabilities_table(item_to_create):
+    """
+    Create record in vulnerabilities table and return its ID
+    :param item_to_create:
+    :return: vulner id
+    """
     # get capec info
 
     # get cwes from item
@@ -191,7 +193,6 @@ def create_record_in_vulnerabilities_table__vulner_id(item_to_create):
                 )
             ))
 
-
     # update vulner
     vulner = vulnerabilities(
         component=item_to_create.get("component", ""),
@@ -217,11 +218,14 @@ def create_record_in_vulnerabilities_table__vulner_id(item_to_create):
     vulner.save()
     return vulner.id
 
-##############################################################################
-# Update record in vulnerabilities table and return its ID.
-##############################################################################
 
-def update_vulner_in_database__vulner_id(item_to_update, item_id_in_database):
+def update_vulner_in_database(item_to_update, item_id_in_database):
+    """
+    Update record in vulnerabilities table and return its ID
+    :param item_to_update:
+    :param item_id_in_database:
+    :return: vulner_id
+    """
     was_modified = False
     vulner_from_database = vulnerabilities.get(vulnerabilities.id==item_id_in_database)
     vulner = vulner_from_database.to_json
@@ -264,14 +268,13 @@ def update_vulner_in_database__vulner_id(item_to_update, item_id_in_database):
 
     return vulner_from_database.id
 
-##############################################################################
-# Update vulnerabilities table with list of items and return counts of:
-# - new records to update;
-# - updated records;
-# - time delta.
-##############################################################################
 
-def update_vulnerabilities_table__counts(items_to_update):
+def update_vulnerabilities_table(items_to_update):
+    """
+    Update vulnerabilities table
+    :param items_to_update:
+    :return: count of new records, count of updated records and time delta
+    """
     start_time = time.time()
     count_of_new_records = 0
     count_of_updated_records = 0
@@ -293,10 +296,10 @@ def update_vulnerabilities_table__counts(items_to_update):
             if_records_exists_in_database__ids = if_item_already_exists_in_vulnerabilities_table(component, version, cve_id)
             if len(if_records_exists_in_database__ids) > 0:
                 for item_id_in_database in if_records_exists_in_database__ids:
-                    update_vulner_in_database__vulner_id(one_item, item_id_in_database)
+                    update_vulner_in_database(one_item, item_id_in_database)
                     count_of_updated_records += 1
             else:
-                create_record_in_vulnerabilities_table__vulner_id(one_item)
+                create_record_in_vulnerabilities_table(one_item)
                 count_of_new_records += 1
         pass
 
@@ -304,14 +307,12 @@ def update_vulnerabilities_table__counts(items_to_update):
 
     return count_of_new_records, count_of_updated_records, time.time() - start_time
 
-##############################################################################
-# Populate vulnerabilities table and return counts of:
-# - new records to update;
-# - updated records;
-# - time delta.
-##############################################################################
 
-def populate_vulners_from_source__counts():
+def populate_vulners_from_source():
+    """
+    Populate vulnerabilities table
+    :return: count of new records to update, count of updated records and time delta
+    """
     start_time = time.time()
     start_year = SETTINGS.get("start_year", 2018)
     current_year = datetime.now().year
@@ -346,21 +347,19 @@ def populate_vulners_from_source__counts():
 
             items_to_populate = filter_items_to_update(parsed_cve_items)
 
-            update_vulnerabilities_table__counts(items_to_populate)
+            update_vulnerabilities_table(items_to_populate)
 
             count_of_parsed_cve_items += len(parsed_cve_items)
             count_of_populated_items += len(items_to_populate)
 
     return count_of_parsed_cve_items, count_of_populated_items, time.time() - start_time
 
-##############################################################################
-# Update modified elements in vulnerabilities table and return counts of:
-# - new records to update;
-# - updated records;
-# - time delta.
-##############################################################################
 
-def update_modified_vulners_from_source__counts():
+def update_modified_vulners_from_source():
+    """
+    Update modified elements in vulnerabilities table
+    :return: count of new records to update, count of updated records and time delta
+    """
     start_time = time.time()
     count_of_parsed_cve_items = 0
     count_of_updated_items = 0
@@ -386,7 +385,7 @@ def update_modified_vulners_from_source__counts():
         items_to_update = filter_items_to_update(modified_parsed)
 
         # Update vulners in Postgres
-        update_vulnerabilities_table__counts(items_to_update)
+        update_vulnerabilities_table(items_to_update)
 
         # Push ~modified~ items into collection ~modified~ in Redis
         for one_item_to_update in items_to_update:
@@ -411,14 +410,12 @@ def update_modified_vulners_from_source__counts():
 
     return count_of_parsed_cve_items, count_of_updated_items, time.time() - start_time
 
-##############################################################################
-# Update recent elements in vulnerabilities table and return counts of:
-# - new records to update;
-# - updated records;
-# - time delta.
-##############################################################################
 
 def update_recent_vulners_from_source__counts():
+    """
+    Update recent elements in vulnerabilities table
+    :return: count of new records to update, count of updated records and time delta
+    """
     start_time = time.time()
     count_of_parsed_cve_items = 0
     count_of_updated_items = 0
@@ -444,7 +441,7 @@ def update_recent_vulners_from_source__counts():
         items_to_update = filter_items_to_update(recent_parsed)
 
         # Update vulners in Postgres
-        update_vulnerabilities_table__counts(items_to_update)
+        update_vulnerabilities_table(items_to_update)
 
         # Push ~recent~ items into collection ~new~ in Redis
         for one_item_to_update in items_to_update:
@@ -468,23 +465,25 @@ def update_recent_vulners_from_source__counts():
 
     return count_of_parsed_cve_items, count_of_updated_items, time.time() - start_time
 
-##############################################################################
-# Get vulnerabilities table count on Postgres
-##############################################################################
 
 def get_vulners_table_count():
+    """
+    Get count of items from vulnerabilities table
+    :return:
+    """
     connect_database()
     count = vulnerabilities.select().count()
     disconnect_database()
-    print('Table ~vulnerabilities~ count now is: {}'.format(count))
+    print('Table ~vulnerabilities~ contains {} items'.format(count))
 
-##############################################################################
-# Drop vulnerabilities table.
-##############################################################################
 
 def drop_all_tables_in_postgres():
+    """
+    Drop tables from PostgresQL
+    :return:
+    """
     if SETTINGS["postgres"]["drop_before"]:
-        print('Table ~vulnerabilities~ will be drop according SETTINGS ~drop_before~ parameter.')
+        print('Tables will be drop from PostgresQL')
         connect_database()
         CAPEC.drop_table()
         CWE.drop_table()
