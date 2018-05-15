@@ -491,15 +491,8 @@ def run():
 
 
 def main():
-    # print('Searcher started...')
-    # run()
-    print_list(fast_search_for_one_vulner_in_json__list_of_items_in_json(
-        {"project_id": "5aed6441ba733d37419d5565",
-         "organization_id":"5ae05fde9531a003aacdacf8",
-         "set_id":"5aed6441ba733d37419d5564",
-         "component":{
-              "name":"junos","version":"14.1"}}
-    ))
+    print('Searcher started...')
+    run()
 
 
 if __name__ == '__main__':
