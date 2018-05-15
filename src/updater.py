@@ -32,9 +32,11 @@ def main():
     drop_all_tables_in_postgres()
     print(action_update_cwe())
     print(action_update_capec())
-    print(action_populate_databases())
-    print(action_update_modified_elements())
-    print(action_update_recent_elements())
+    action_populate_databases()
+    print()
+    action_update_modified_elements()
+    print()
+    action_update_recent_elements()
 
 
 if __name__ == '__main__':

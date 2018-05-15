@@ -20,7 +20,7 @@ SETTINGS = {
         "database": "updater_db",
         "host": "localhost",
         "port": "5432",
-        "drop_before": True,
+        "drop_before": False,
         "cache_size_mb": 64
     },
     "cache": {

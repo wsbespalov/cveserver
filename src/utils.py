@@ -65,7 +65,10 @@ def print_short(items_to_print):
 
 
 def serialize_json__for_postgres(source):
-    return json.dumps(ast.literal_eval(source))
+    try:
+        return json.dumps(ast.literal_eval(source))
+    except ValueError:
+        return json.dumps(source)
 
 
 def deserialize_json__for_postgres(source):
