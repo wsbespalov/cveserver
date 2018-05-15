@@ -229,7 +229,9 @@ def fast_search_for_list_of_vulners__list_of_items_as_json(list_of_component_and
 def only_digits(var):
     return re.sub("\D", "", var)
 
+
 def reformat_vulner_for_output__json(item_to_reformat):
+    id = item_to_reformat["id"]
     published = unify_time(item_to_reformat.get("publushed", datetime.utcnow()))
     modified = unify_time(item_to_reformat.get("modified", datetime.utcnow()))
     access_in_item = item_to_reformat.get("access", dict(
@@ -295,6 +297,7 @@ def reformat_vulner_for_output__json(item_to_reformat):
     cve_references = cve_references_in_json.get("data", [])
 
     template = dict(
+        _id=id,
         Published=published,
         Modified=modified,
         access=access,
@@ -486,9 +489,17 @@ def run():
         pass
     pass
 
+
 def main():
-    print('Searcher started...')
-    run()
+    # print('Searcher started...')
+    # run()
+    print_list(fast_search_for_one_vulner_in_json__list_of_items_in_json(
+        {"project_id": "5aed6441ba733d37419d5565",
+         "organization_id":"5ae05fde9531a003aacdacf8",
+         "set_id":"5aed6441ba733d37419d5564",
+         "component":{
+              "name":"junos","version":"14.1"}}
+    ))
 
 
 if __name__ == '__main__':
