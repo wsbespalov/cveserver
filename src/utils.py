@@ -72,7 +72,10 @@ def serialize_json__for_postgres(source):
 
 
 def deserialize_json__for_postgres(source):
-    a = ast.literal_eval(source)
+    if isinstance(source, dict):
+        return source
+    else:
+        a = ast.literal_eval(source)
     if isinstance(a, dict):
         return a
     return json.loads(a)

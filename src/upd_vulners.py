@@ -7,7 +7,8 @@ import cpe as cpe_module
 from datetime import datetime
 from dateutil.parser import parse as parse_datetime
 
-from models import vulnerabilities, INFO, CAPEC, CWE
+from models import vulnerabilities, INFO, CAPEC
+from searcher import reformat_vulner_for_output__json
 
 from utils import get_file
 from utils import unify_time
@@ -301,7 +302,7 @@ def update_vulnerabilities_table(items_to_update):
             else:
                 _id = create_record_in_vulnerabilities_table(one_item)
                 count_of_new_records += 1
-        one_item["_id"] = _id
+        one_item["id"] = _id
         pass
 
     disconnect_database()
@@ -394,7 +395,7 @@ def update_modified_vulners_from_source():
                 queue.rpush(
                     SETTINGS["queue"]["modified_queue"],
                     serialize_as_json__for_cache(
-                        one_item_to_update
+                        reformat_vulner_for_output__json(one_item_to_update)
                     )
                 )
             except Exception as ex:
@@ -450,7 +451,7 @@ def update_recent_vulners_from_source__counts():
                 queue.rpush(
                     SETTINGS["queue"]["new_queue"],
                     serialize_as_json__for_cache(
-                        one_item_to_update
+                        reformat_vulner_for_output__json(one_item_to_update)
                     )
                 )
             except Exception as ex:
