@@ -4,10 +4,12 @@ import json
 import urllib
 import string
 import cpe as cpe_module
+import psycopg2
 from datetime import datetime
 from dateutil.parser import parse as parse_datetime
 
 from models import vulnerabilities, INFO, CAPEC, CWE
+from searcher import reformat_vulner_for_output__json
 
 from utils import get_file
 from utils import unify_time
@@ -23,7 +25,10 @@ from settings import SETTINGS
 
 from caches import queue
 
+conn = psycopg2.connect("dbname='updater_db' user='admin' host='localhost' password='123'")
 channel_to_publish = SETTINGS["queue"]["channel"]
+
+INFO.create_table()
 
 
 def download_cve_file(source):
@@ -149,8 +154,8 @@ def if_item_already_exists_in_vulnerabilities_table(component, version, cve_id):
     list_of_elements = list(
         vulnerabilities.select().where(
             (vulnerabilities.component==component) &
-            (vulnerabilities.version==version) &
-            (vulnerabilities.cve_id==cve_id)
+            (vulnerabilities.version==version) # &
+            # (vulnerabilities.cve_id==cve_id)
         )
     )
     list_of_ids = []
@@ -194,29 +199,40 @@ def create_record_in_vulnerabilities_table(item_to_create):
             ))
 
     # update vulner
-    vulner = vulnerabilities(
-        component=item_to_create.get("component", ""),
-        version=item_to_create.get("version", ""),
-        data_type=item_to_create.get("data_type", ""),
-        data_format=item_to_create.get("data_format", ""),
-        data_version=item_to_create.get("data_version", ""),
-        cve_id=item_to_create.get("cve_id", ""),
-        cwe=item_to_create.get("cwe", '{"data": []}'),
-        references=item_to_create.get("references", '{"data": []}'),
-        description=item_to_create.get("description", ""),
-        cpe=item_to_create.get("cpe", ""),
-        vulnerable_configuration=item_to_create.get("vulnerable_configuration", '{"data": []}'),
-        published=item_to_create.get("published", str(datetime.utcnow())),
-        modified=item_to_create.get("modified", str(datetime.utcnow())),
-        access=item_to_create.get("access", '{}'),
-        impact=item_to_create.get("impact", '{}'),
-        vector_string=item_to_create.get("vector_string", ""),
-        cvss_time=item_to_create.get("cvss_time", str(datetime.utcnow())),
-        cvss=item_to_create.get("cvss", 0.0),
-        capec=json.dumps({"data": capec_list})
-    )
-    vulner.save()
-    return vulner.id
+    # vulner = vulnerabilities(
+    #     component=item_to_create.get("component", ""),
+    #     version=item_to_create.get("version", ""),
+    #     data_type=item_to_create.get("data_type", ""),
+    #     data_format=item_to_create.get("data_format", ""),
+    #     data_version=item_to_create.get("data_version", ""),
+    #     cve_id=item_to_create.get("cve_id", ""),
+        # cwe=item_to_create.get("cwe", '{"data": []}'),
+        # references=item_to_create.get("references", '{"data": []}'),
+        # description=item_to_create.get("description", ""),
+        # cpe=item_to_create.get("cpe", ""),
+        # vulnerable_configuration=item_to_create.get("vulnerable_configuration", '{"data": []}'),
+        # published=item_to_create.get("published", str(datetime.utcnow())),
+        # modified=item_to_create.get("modified", str(datetime.utcnow())),
+        # access=item_to_create.get("access", '{}'),
+        # impact=item_to_create.get("impact", '{}'),
+        # vector_string=item_to_create.get("vector_string", ""),
+        # cvss_time=item_to_create.get("cvss_time", str(datetime.utcnow())),
+        # cvss=item_to_create.get("cvss", 0.0),
+        # capec=json.dumps({"data": capec_list})
+    # )
+    # vulner.save()
+    # return vulner.id
+
+    cur = conn.cursor()
+    #
+    # print(item_to_create.get("cwe", '{"data": []}')['data'])
+    # print(type(item_to_create.get("cwe", '{"data": []}'),))
+
+    cur.execute('''insert into vulnerabilities (component, version, data_type, data_format, data_version, cve_id) values ('{}', '{}', '{}', '{}', '{}', '{}')'''.format(
+        item_to_create.get("component", ''), item_to_create.get("version", ''), item_to_create.get("data_type", ''),
+        item_to_create.get("data_format", ''), item_to_create.get("data_version", ''), item_to_create.get("cve_id", ""),))
+    conn.commit()
+    cur.close()
 
 
 def update_vulner_in_database(item_to_update, item_id_in_database):
@@ -238,27 +254,27 @@ def update_vulner_in_database(item_to_update, item_id_in_database):
     if vulner["data_version"] != item_to_update["data_version"]:
         was_modified = True
         vulner_from_database.data_version = item_to_update["data_version"]
-    if deserialize_json__for_postgres(vulner["cwe"]) != item_to_update["cwe"]:
-        was_modified = True
-        vulner_from_database.cwe = serialize_json__for_postgres(item_to_update["cwe"])
-    if deserialize_json__for_postgres(vulner["references"]) != item_to_update["references"]:
-        was_modified = True
-        vulner_from_database.references = serialize_json__for_postgres(item_to_update["references"])
-    if vulner["description"] != item_to_update["description"]:
-        was_modified = True
-        vulner_from_database.description = item_to_update["description"]
-    if vulner["cpe"] != item_to_update["cpe"]:
-        was_modified = True
-        vulner_from_database.cpe = item_to_update["cpe"]
-    if deserialize_json__for_postgres(vulner["vulnerable_configuration"]) != item_to_update["vulnerable_configuration"]:
-        was_modified = True
-        vulner_from_database.vulnerable_configuration = serialize_json__for_postgres(item_to_update["vulnerable_configuration"])
-    if unify_time(vulner["published"]) != unify_time(item_to_update["published"]):
-        was_modified = True
-        vulner_from_database.published = unify_time(item_to_update["published"])
-    if unify_time(vulner["modified"]) != unify_time(item_to_update["modified"]):
-        was_modified = True
-        vulner_from_database.modified = unify_time(item_to_update["modified"])
+    # if deserialize_json__for_postgres(vulner["cwe"]) != item_to_update["cwe"]:
+    #     was_modified = True
+    #     vulner_from_database.cwe = serialize_json__for_postgres(item_to_update["cwe"])
+    # if deserialize_json__for_postgres(vulner["references"]) != item_to_update["references"]:
+    #     was_modified = True
+    #     vulner_from_database.references = serialize_json__for_postgres(item_to_update["references"])
+    # if vulner["description"] != item_to_update["description"]:
+    #     was_modified = True
+    #     vulner_from_database.description = item_to_update["description"]
+    # if vulner["cpe"] != item_to_update["cpe"]:
+    #     was_modified = True
+    #     vulner_from_database.cpe = item_to_update["cpe"]
+    # if deserialize_json__for_postgres(vulner["vulnerable_configuration"]) != item_to_update["vulnerable_configuration"]:
+    #     was_modified = True
+    #     vulner_from_database.vulnerable_configuration = serialize_json__for_postgres(item_to_update["vulnerable_configuration"])
+    # if unify_time(vulner["published"]) != unify_time(item_to_update["published"]):
+    #     was_modified = True
+    #     vulner_from_database.published = unify_time(item_to_update["published"])
+    # if unify_time(vulner["modified"]) != unify_time(item_to_update["modified"]):
+    #     was_modified = True
+    #     vulner_from_database.modified = unify_time(item_to_update["modified"])
     if was_modified:
         vulner_from_database.save()
 
@@ -393,7 +409,7 @@ def update_modified_vulners_from_source():
                 queue.rpush(
                     SETTINGS["queue"]["modified_queue"],
                     serialize_as_json__for_cache(
-                        one_item_to_update
+                        reformat_vulner_for_output__json(one_item_to_update)
                     )
                 )
             except Exception as ex:
@@ -449,7 +465,7 @@ def update_recent_vulners_from_source__counts():
                 queue.rpush(
                     SETTINGS["queue"]["new_queue"],
                     serialize_as_json__for_cache(
-                        one_item_to_update
+                        reformat_vulner_for_output__json(one_item_to_update)
                     )
                 )
             except Exception as ex:
@@ -485,8 +501,8 @@ def drop_all_tables_in_postgres():
     if SETTINGS["postgres"]["drop_before"]:
         print('Tables will be drop from PostgresQL')
         connect_database()
-        CAPEC.drop_table()
-        CWE.drop_table()
-        INFO.drop_table()
+        # CAPEC.drop_table()
+        # CWE.drop_table()
+        # INFO.drop_table()
         vulnerabilities.drop_table()
         disconnect_database()
