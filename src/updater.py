@@ -2,6 +2,7 @@ from upd_vulners import *
 from upd_cwe import action_update_cwe
 from upd_capec import action_update_capec
 from searcher import *
+from utils import drop_all_tables_in_postgres, create_tables_in_postgres
 
 
 def action_populate_databases():
@@ -22,7 +23,7 @@ def action_update_modified_elements():
 
 def action_update_recent_elements():
     print("Start update recent of database")
-    count_of_parsed_cve_items, count_of_updated_items, time_delta = update_recent_vulners_from_source__counts()
+    count_of_parsed_cve_items, count_of_updated_items, time_delta = update_recent_vulners_from_source()
     print("Get        {} recent elements from source".format(count_of_parsed_cve_items))
     print("Append     {} recent elements from souce in database".format(count_of_updated_items))
     print("TimeDelta  %.2f sec." % (time_delta))
@@ -30,6 +31,7 @@ def action_update_recent_elements():
 
 def main():
     drop_all_tables_in_postgres()
+    create_tables_in_postgres()
     print(action_update_cwe())
     print(action_update_capec())
     action_populate_databases()

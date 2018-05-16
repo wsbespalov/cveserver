@@ -101,15 +101,12 @@ def filter_items_to_update(items_fo_filter, unquote=True, only_digits_and_dot_in
     :return: list of items
     """
     filtered_items = []
-    # for item in items_fo_filter:
     for item in progressbar(items_fo_filter, prefix='Filtering  '):
         # For every item in downloaded update
         # Get cpe strings
-        list_of_cpe_strings_field = item.get("vulnerable_configuration", {})
-        list_of_cpe_strings = list_of_cpe_strings_field.get("data", [])
+        list_of_cpe_strings = item.get("vulnerable_configuration", [])
         # If list not empty
         if len(list_of_cpe_strings) > 0:
-            # For every cpe string
             for one_cpe_string in list_of_cpe_strings:
                 # Get one string and check it
                 filtered_cpe_string = filter_cpe_string__json(one_cpe_string)
@@ -130,7 +127,7 @@ def filter_items_to_update(items_fo_filter, unquote=True, only_digits_and_dot_in
                         if only_digits_and_dot_in_version:
                             allow = string.digits + '.' + '(' + ')'
                             new_item["version"] = re.sub('[^%s]' % allow, '', new_item["version"])
-                        new_item["vulnerable_configuration"] = {"data": list_of_cpe_strings}
+                        new_item["vulnerable_configuration"] = list_of_cpe_strings
                         new_item["cpe"] = one_cpe_string
                         filtered_items.append(new_item)
                         del new_item
@@ -166,23 +163,16 @@ def create_record_in_vulnerabilities_table(item_to_create):
     :param item_to_create:
     :return: vulner id
     """
-    # get capec info
-
-    # get cwes from item
-    cwes_in_item = item_to_create.get("cwe", '{"data": []}')
-
-    cwes_list = cwes_in_item.get("data", [])
-
+    cwe_list = item_to_create.get("cwe", [])
     capec_list = []
 
-    for cwe in cwes_list:
+    for cwe in cwe_list:
         capec = list(CAPEC.select().where(
             (CAPEC.related_weakness.contains(
                 cwe
             ))
         ))
         for capec_element in capec:
-            # capec_elements_in_json = capec_element.to_json
             capec_list.append(json.dumps(
                 dict(
                     id=re.sub("\D", "", str(capec_element.capec_id)),
@@ -194,7 +184,6 @@ def create_record_in_vulnerabilities_table(item_to_create):
                 )
             ))
 
-    # update vulner
     vulner = vulnerabilities(
         component=item_to_create.get("component", ""),
         version=item_to_create.get("version", ""),
@@ -202,8 +191,8 @@ def create_record_in_vulnerabilities_table(item_to_create):
         data_format=item_to_create.get("data_format", ""),
         data_version=item_to_create.get("data_version", ""),
         cve_id=item_to_create.get("cve_id", ""),
-        cwe=item_to_create.get("cwe", '{"data": []}'),
-        references=item_to_create.get("references", '{"data": []}'),
+        cwe=item_to_create.get("cwe", []),
+        references=item_to_create.get("references", []),
         description=item_to_create.get("description", ""),
         cpe=item_to_create.get("cpe", ""),
         vulnerable_configuration=item_to_create.get("vulnerable_configuration", '{"data": []}'),
@@ -214,7 +203,7 @@ def create_record_in_vulnerabilities_table(item_to_create):
         vector_string=item_to_create.get("vector_string", ""),
         cvss_time=item_to_create.get("cvss_time", str(datetime.utcnow())),
         cvss=item_to_create.get("cvss", 0.0),
-        capec=json.dumps({"data": capec_list})
+        capec=capec_list
     )
     vulner.save()
     return vulner.id
@@ -263,10 +252,6 @@ def update_vulner_in_database(item_to_update, item_id_in_database):
     if was_modified:
         vulner_from_database.save()
 
-
-    # TODO: append new fields
-
-
     return vulner_from_database.id
 
 
@@ -281,8 +266,6 @@ def update_vulnerabilities_table(items_to_update):
     count_of_updated_records = 0
 
     connect_database()
-
-    vulnerabilities.create_table()
 
     # For every item in items to update
     # for one_item in items_to_update:
@@ -390,6 +373,9 @@ def update_modified_vulners_from_source():
         update_vulnerabilities_table(items_to_update)
 
         # Push ~modified~ items into collection ~modified~ in Redis
+
+        # TODO: check vulnerable_configuration
+
         for one_item_to_update in items_to_update:
             try:
                 queue.rpush(
@@ -399,7 +385,7 @@ def update_modified_vulners_from_source():
                     )
                 )
             except Exception as ex:
-                pass
+                print(ex)
 
         # Publish message
         queue.publish(
@@ -413,7 +399,7 @@ def update_modified_vulners_from_source():
     return count_of_parsed_cve_items, count_of_updated_items, time.time() - start_time
 
 
-def update_recent_vulners_from_source__counts():
+def update_recent_vulners_from_source():
     """
     Update recent elements in vulnerabilities table
     :return: count of new records to update, count of updated records and time delta
@@ -477,18 +463,3 @@ def get_vulners_table_count():
     count = vulnerabilities.select().count()
     disconnect_database()
     print('Table ~vulnerabilities~ contains {} items'.format(count))
-
-
-def drop_all_tables_in_postgres():
-    """
-    Drop tables from PostgresQL
-    :return:
-    """
-    if SETTINGS["postgres"]["drop_before"]:
-        print('Tables will be drop from PostgresQL')
-        connect_database()
-        # CAPEC.drop_table()
-        # CWE.drop_table()
-        INFO.drop_table()
-        vulnerabilities.drop_table()
-        disconnect_database()
