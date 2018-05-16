@@ -63,9 +63,9 @@ def run():
 
 def main():
     print('Searcher started...')
-    keys = queue.keys("result::*")
-    for key in keys:
-        queue.delete(key)
+    # keys = queue.keys("result::*")
+    # for key in keys:
+    #     queue.delete(key)
     run()
 
 
