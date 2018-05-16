@@ -301,7 +301,7 @@ def update_vulnerabilities_table(items_to_update):
             else:
                 _id = create_record_in_vulnerabilities_table(one_item)
                 count_of_new_records += 1
-        one_item["id"] = _id
+        one_item["_id"] = _id
         pass
 
     disconnect_database()
