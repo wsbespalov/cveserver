@@ -1,12 +1,17 @@
+import ast
+import bz2
+import gzip
+import json
+import sys
 import urllib.request as req
 import zipfile
-from io import BytesIO
-import gzip
-import bz2
-import sys
-import json
-import ast
 from datetime import datetime
+from io import BytesIO
+
+from settings import SETTINGS
+from models import vulnerabilities, INFO, CAPEC, CWE
+from database import *
+
 from dateutil.parser import parse as parse_datetime
 
 
@@ -72,7 +77,7 @@ def serialize_json__for_postgres(source):
 
 
 def deserialize_json__for_postgres(source):
-    if isinstance(source, dict):
+    if isinstance(source, list):
         return source
     else:
         a = ast.literal_eval(source)
@@ -143,3 +148,42 @@ def get_file(getfile, unpack=True, raw=False, HTTP_PROXY=None):
         return data, response
     except Exception as ex:
         return None, str(ex)
+
+
+def convert_list_data_to_json(data):
+    if isinstance(data, list):
+        serialized = []
+        for element in data:
+            serialized.append(json.dumps(element))
+        return serialized
+    else:
+        return []
+
+
+def drop_all_tables_in_postgres():
+    """
+    Drop tables from PostgresQL
+    :return:
+    """
+    if SETTINGS["postgres"]["drop_before"]:
+        print('Tables will be drop from PostgresQL')
+        connect_database()
+        CAPEC.drop_table()
+        CWE.drop_table()
+        INFO.drop_table()
+        vulnerabilities.drop_table()
+        disconnect_database()
+
+
+def create_tables_in_postgres():
+    """
+    Drop tables from PostgresQL
+    :return:
+    """
+    connect_database()
+    CAPEC.create_table()
+    CWE.create_table()
+    INFO.create_table()
+    vulnerabilities.create_table()
+    disconnect_database()
+
