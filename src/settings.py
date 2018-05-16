@@ -41,6 +41,9 @@ SETTINGS = {
         "message_to_start_search": "start_search",
         "channel_complete": "search_complete",
         "complete_message": "create::",
+        "complete_get_vulnerability": "result::",
+        "vulnerability_channel": "vulnerabilityServiceChannel",
+        "message_to_get_vulnerability": "getVulnerability",
         "message_to_kill_search": "message_to_kill_search",
         "modified_queue": "VulnerabilityManagement-CVE:modified",
         "new_queue": "VulnerabilityManagement-CVE:new"
