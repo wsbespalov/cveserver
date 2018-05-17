@@ -257,9 +257,8 @@ def reformat_vulner_for_output__json(item_to_reformat):
     vector_string = item_to_reformat.get("vector_string", "")
     cvss_time = unify_time(item_to_reformat.get("cvss_time", datetime.utcnow()))
     cvss = item_to_reformat.get("cvss", 0.0)
-    cwe_in_item = item_to_reformat.get("cwe", {})
-    cwe_json = deserialize_json__for_postgres(cwe_in_item)
-    cwe_list = cwe_json.get("data", [])
+    cwe_in_item = item_to_reformat.get("cwe", [])
+    cwe_list = deserialize_json__for_postgres(cwe_in_item)
     cwe_id_list = []
     for cwe_in_list in cwe_list:
         cwe_id_list.append(only_digits(cwe_in_list))
@@ -270,10 +269,9 @@ def reformat_vulner_for_output__json(item_to_reformat):
 
     __v = 0
 
-    capec_in_item = item_to_reformat.get("capec", {})
-    capec_json = deserialize_json__for_postgres(capec_in_item)
-    capec_list = capec_json.get("data", [])
-    capec = [] # not yet
+    capec_list = item_to_reformat.get("capec", [])
+    capec = []  # not yet
+
     for capec_in_list in capec_list:
         if isinstance(capec_in_list, str):
             capec.append(json.loads(capec_in_list))
@@ -288,13 +286,9 @@ def reformat_vulner_for_output__json(item_to_reformat):
 
     vulnerable_configurations = []
 
-    vulnerable_configuration_in_item = item_to_reformat.get("vulnerable_configuration", {})
-    vulnerable_configuration_in_json = deserialize_json__for_postgres(vulnerable_configuration_in_item)
-    vulnerable_configuration = vulnerable_configuration_in_json.get("data", [])
+    vulnerable_configuration = item_to_reformat.get("vulnerable_configuration", [])
 
-    cve_references_in_item = item_to_reformat.get("references", {})
-    cve_references_in_json = deserialize_json__for_postgres(cve_references_in_item)
-    cve_references = cve_references_in_json.get("data", [])
+    cve_references = item_to_reformat.get("references", [])
 
     template = dict(
         _id=id,

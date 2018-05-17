@@ -1,4 +1,5 @@
 import peewee
+from playhouse.postgres_ext import ArrayField
 from datetime import datetime
 from settings import SETTINGS
 
@@ -88,12 +89,24 @@ class vulnerabilities(peewee.Model):
     data_type = peewee.TextField(default="",)
     data_format = peewee.TextField(default="",)
     data_version = peewee.TextField(default="",)
+    cwe = ArrayField(
+        peewee.TextField,
+        default=[],
+        verbose_name='cwe'
+    )
     cve_id = peewee.TextField(default="",)
-    cwe = peewee.TextField(default='{"data":[]},')
-    references = peewee.TextField(default='{"data":[]}',)
+    references = ArrayField(
+        peewee.TextField,
+        default=[],
+        verbose_name='references'
+    )
     description = peewee.TextField(default="",)
     cpe = peewee.TextField(default="",)
-    vulnerable_configuration = peewee.TextField(default='{"data":[]}',)
+    vulnerable_configuration = ArrayField(
+        peewee.TextField,
+        default=[],
+        verbose_name='vulnerable_configuration'
+    )
     published = peewee.DateTimeField(default=datetime.now,)
     modified = peewee.DateTimeField(default=datetime.now,)
 
@@ -106,7 +119,11 @@ class vulnerabilities(peewee.Model):
 
     cvss = peewee.FloatField(default=0.0,)
 
-    capec = peewee.TextField(default='{"data":[]}',)
+    capec = ArrayField(
+        peewee.TextField,
+        default=[],
+        verbose_name='capec'
+    )
 
     def __unicode__(self):
         return "vulnerabilities"
