@@ -198,7 +198,7 @@ def create_record_in_vulnerabilities_table(item_to_create):
         references=item_to_create.get("references", []),
         description=item_to_create.get("description", ""),
         cpe=item_to_create.get("cpe", ""),
-        vulnerable_configuration=item_to_create.get("vulnerable_configuration", '{"data": []}'),
+        vulnerable_configuration=item_to_create.get("vulnerable_configuration", []),
         published=item_to_create.get("published", str(datetime.utcnow())),
         modified=item_to_create.get("modified", str(datetime.utcnow())),
         access=item_to_create.get("access", '{}'),

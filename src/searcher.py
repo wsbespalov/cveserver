@@ -280,9 +280,6 @@ def reformat_vulner_for_output__json(item_to_reformat):
         else:
             pass
 
-    for i in range(0, len(capec)):
-        related_weakness = capec[i].get("related_weakness", "[]")
-        capec[i]["related_weakness"] = ast.literal_eval(related_weakness)
 
     vulnerable_configurations = []
 
