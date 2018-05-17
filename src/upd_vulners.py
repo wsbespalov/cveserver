@@ -35,7 +35,10 @@ def download_cve_file(source):
     """
     file_stream, response_info = get_file(source)
     try:
-        result = json.load(file_stream)
+        if isinstance(file_stream, str):
+            result = json.loads(file_stream)
+        else:
+            result = json.load(file_stream)
         if "CVE_Items" in result:
             CVE_data_timestamp = result.get("CVE_data_timestamp", unify_time(datetime.utcnow()))
             return result["CVE_Items"], CVE_data_timestamp, response_info
