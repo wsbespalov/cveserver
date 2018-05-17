@@ -194,7 +194,7 @@ def put_items_into_redis_cache(items_to_cache):
     return count
 
 
-def fast_search_for_list_of_vulners__list_of_items_as_json(list_of_component_and_versions):
+def fast_search_for_list_of_vulners(list_of_component_and_versions):
     """
     Search items by list of components and its versions in PostgresQL and Cache
     :param list_of_component_and_versions:
@@ -222,15 +222,25 @@ def fast_search_for_list_of_vulners__list_of_items_as_json(list_of_component_and
                     ready_items = ready_items + items_in_postgres
     return ready_items
 
-##############################################################################
-# Reformat vulnet for Response.
-##############################################################################
 
 def only_digits(var):
-    return re.sub("\D", "", var)
+    """
+    Get only digits from string
+    :param var:
+    :return:
+    """
+    if isinstance(var, str):
+        return re.sub("\D", "", var)
+    else:
+        return ""
 
 
-def reformat_vulner_for_output__json(item_to_reformat):
+def reformat_vulner_for_output(item_to_reformat):
+    """
+    Reformat vulner for Response
+    :param item_to_reformat:
+    :return: reformatted item for response
+    """
     id = item_to_reformat["id"]
     published = unify_time(item_to_reformat.get("publushed", datetime.utcnow()))
     modified = unify_time(item_to_reformat.get("modified", datetime.utcnow()))
@@ -277,9 +287,6 @@ def reformat_vulner_for_output__json(item_to_reformat):
             capec.append(json.loads(capec_in_list))
         elif isinstance(capec_in_list, dict):
             capec.append(capec_in_list)
-        else:
-            pass
-
 
     vulnerable_configurations = []
 
@@ -309,15 +316,14 @@ def reformat_vulner_for_output__json(item_to_reformat):
     )
     return template
 
-##############################################################################
-# Search one Item by component and it version from JSON request
-# in Postgres and in Cache.
-# Return reformatted item.
-##############################################################################
 
-def fast_search_for_one_vulner_in_json__list_of_items_in_json(item_to_search):
+def fast_search_for_one_vulner_in_json(item_to_search):
+    """
+    Search one Item by component and version from JSON request in Postgres and in Cache
+    :param item_to_search:
+    :return: reformatted item for response
+    """
     # Source request for search:
-
     # {"project_id":"5aed6441ba733d37419d5565",
     #  "organization_id":"5ae05fde9531a003aacdacf8",
     #  "set_id":"5aed6441ba733d37419d5564",
@@ -344,22 +350,22 @@ def fast_search_for_one_vulner_in_json__list_of_items_in_json(item_to_search):
                     put_items_into_redis_cache(items_in_postgres)
                     # Append result
                     ready_items = ready_items + items_in_postgres
-        pass
     # Reformat items
     reformatted_items = []
     for item in ready_items:
         reformatted_items.append(
-            reformat_vulner_for_output__json(
+            reformat_vulner_for_output(
                 item
             )
         )
     return reformatted_items
 
-##############################################################################
-# Scan queue for keys
-##############################################################################
 
-def scan_queue_for_keys():
+def scan_queue_for_keys() -> list:
+    """
+    Scan queue for keys by mask
+    :return: list of keys
+    """
     mask = SETTINGS["queue"]["prefix_requests"] + "*"
     mykeys = []
     try:
@@ -367,6 +373,7 @@ def scan_queue_for_keys():
     except Exception as ex:
         print("{}".format(ex))
     return mykeys
+
 
 def run():
     channel_to_subscribe_and_publish = SETTINGS["queue"]["channel"]
@@ -379,13 +386,10 @@ def run():
     for message in subscriber.listen():
         # For every message in this channel
         data = message.get("data", {})
-        if data == 1:
-            pass
-        else:
+
+        if data != 1:
             if isinstance(data, bytes):
                 data = data.decode("utf-8")
-            elif isinstance(data, dict):
-                pass
             if data == message_to_kill_search:
                 # Message to kill search
                 print("Close connection")
@@ -397,9 +401,9 @@ def run():
                 mask = SETTINGS["queue"]["prefix_requests"]
                 # Scan queue for keys
                 mykeys = scan_queue_for_keys()
+
                 # ID for request and complete message
                 id_of_request = ""
-                # For every key
                 for one_key in mykeys:
                     if isinstance(one_key, bytes):
                         key = one_key.decode("utf-8")
@@ -422,11 +426,9 @@ def run():
                         elif isinstance(content, bytes):
                             content_decoded = content.decode("utf-8")
                             content_for_search = deserialize_json__for_postgres(content_decoded)
-                        elif isinstance(content, dict):
-                            pass
                         else:
                             continue
-                        search_result = fast_search_for_one_vulner_in_json__list_of_items_in_json(
+                        search_result = fast_search_for_one_vulner_in_json(
                             content_for_search
                         )
                         for one_search_result in search_result:
@@ -454,31 +456,25 @@ def run():
                                         )
                                     )
                                 except Exception as ex:
-                                    pass
+                                    print('Exception while push: {}'.format(ex))
                             except Exception as ex:
-                                pass
+                                print('Exception while handling one search result: {}'.format(ex))
                     try:
+                        # Publish message to channel for search complete
+                        complete_message = SETTINGS["queue"]["complete_message"] + id_of_request
+                        queue.publish(
+                            channel=channel_to_subscribe_and_publish,
+                            message=complete_message
+                        )
+
                         # Delete search request
                         queue.delete(
                             one_key
                         )
                     except Exception as ex:
                         pass
-                    pass
-                # Publish message to channel for search complete
-                complete_message = SETTINGS["queue"]["complete_message"] + id_of_request
-                queue.publish(
-                    channel=channel_to_subscribe_and_publish,
-                    message=complete_message
-                )
+
                 # print('TimeDelta: {}'.format(time.time() - start_time))
-                pass
-            else:
-                # Unprocessing message
-                pass
-            # print(data)
-        pass
-    pass
 
 
 def main():

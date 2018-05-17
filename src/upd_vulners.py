@@ -8,7 +8,7 @@ from datetime import datetime
 from dateutil.parser import parse as parse_datetime
 
 from models import vulnerabilities, INFO, CAPEC
-from searcher import reformat_vulner_for_output__json
+from searcher import reformat_vulner_for_output
 
 from utils import get_file
 from utils import unify_time
@@ -384,7 +384,7 @@ def update_modified_vulners_from_source():
                 queue.rpush(
                     SETTINGS["queue"]["modified_queue"],
                     serialize_as_json__for_cache(
-                        reformat_vulner_for_output__json(one_item_to_update)
+                        reformat_vulner_for_output(one_item_to_update)
                     )
                 )
             except Exception as ex:
@@ -440,7 +440,7 @@ def update_recent_vulners_from_source():
                 queue.rpush(
                     SETTINGS["queue"]["new_queue"],
                     serialize_as_json__for_cache(
-                        reformat_vulner_for_output__json(one_item_to_update)
+                        reformat_vulner_for_output(one_item_to_update)
                     )
                 )
             except Exception as ex:
