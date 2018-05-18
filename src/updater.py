@@ -32,11 +32,11 @@ def action_update_recent_elements():
 
 
 def main():
-    # drop_all_tables_in_postgres()
+    drop_all_tables_in_postgres()
     create_tables_in_postgres()
-    # print(action_update_cwe())
-    # print(action_update_capec())
-    # action_populate_databases()
+    print(action_update_cwe())
+    print(action_update_capec())
+    action_populate_databases()
     print()
     action_update_modified_elements()
     print()
@@ -46,9 +46,9 @@ def main():
     print(d.populate())
     print("Cache stats: {} elements".format(d.cache.stats))
 
-    # print('Dumped into: {}'.format(
-    #     d.cache.dump_cache_into_json_file__with_ts()
-    # ))
+    print('Dumped into: {}'.format(
+        d.cache.dump_cache_into_json_file__with_ts()
+    ))
 
 
 if __name__ == '__main__':
