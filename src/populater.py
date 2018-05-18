@@ -32,8 +32,11 @@ def run():
             elif isinstance(data, dict):
                 pass
             if message_to_get_vulnerability in data:
-                id_of_request = data[len(message_to_get_vulnerability) + 1:]
-                new_collection_name = SETTINGS["queue"]["complete_get_vulnerability"] + id_of_request
+                id_of_request = data[len(message_to_get_vulnerability) + 10:]
+                uniq_id = data[len(message_to_get_vulnerability) + 1 :len(message_to_get_vulnerability) + 9]
+                print('uniq', uniq_id)
+                print('id_of_request', id_of_request)
+                new_collection_name = SETTINGS["queue"]["complete_get_vulnerability"] + uniq_id + ':' + id_of_request
                 connect_database()
                 vulnerability = list(
                     vulnerabilities.select().where(
@@ -51,10 +54,11 @@ def run():
                 else:
                     pass
                 disconnect_database()
-                complete_message = SETTINGS["queue"]["complete_get_vulnerability"] + id_of_request
+                # complete_message = SETTINGS["queue"]["complete_get_vulnerability"] + id_of_request
                 queue.publish(
                     channel=channel_to_subscribe_and_publish,
-                    message=complete_message
+                    message=new_collection_name
+                    # message=complete_message
                 )
             else:
                 pass
