@@ -1,10 +1,9 @@
-import re
-from math import floor
 from utils import *
-from caches import cache, queue
+from caches import queue
 from database import *
 from models import vulnerabilities
-from searcher import reformat_vulner_for_output__json
+from searcher import reformat_vulner_for_output
+
 
 def scan_queue_for_keys():
     mask = SETTINGS["queue"]["prefix_get"] + "*"
@@ -15,6 +14,7 @@ def scan_queue_for_keys():
         print("{}".format(ex))
     return mykeys
 
+
 def run():
     channel_to_subscribe_and_publish = SETTINGS["queue"]["vulnerability_channel"]
     message_to_get_vulnerability = SETTINGS["queue"]["message_to_get_vulnerability"]
@@ -23,7 +23,7 @@ def run():
     subscriber.subscribe([channel_to_subscribe_and_publish])
 
     for message in subscriber.listen():
-        data = message.get("data", {});
+        data = message.get("data", {})
         if data == 1:
             pass
         else:
@@ -49,7 +49,7 @@ def run():
                 if len(vlist) == 1:
                     queue.rpush(
                         new_collection_name,
-                        serialize_as_json__for_cache(reformat_vulner_for_output__json(vlist[0]))
+                        serialize_as_json__for_cache(reformat_vulner_for_output(vlist[0]))
                     )
                 else:
                     pass
@@ -66,10 +66,7 @@ def run():
 
 
 def main():
-    print('Searcher started...')
-    # keys = queue.keys("result::*")
-    # for key in keys:
-    #     queue.delete(key)
+    print('Populater started...')
     run()
 
 

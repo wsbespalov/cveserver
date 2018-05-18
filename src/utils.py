@@ -1,3 +1,4 @@
+import os
 import ast
 import bz2
 import gzip
@@ -7,8 +8,8 @@ import urllib.request as req
 import zipfile
 from datetime import datetime
 from io import BytesIO
+import platform
 
-from settings import SETTINGS
 from models import vulnerabilities, INFO, CAPEC, CWE
 from database import *
 
@@ -122,42 +123,69 @@ def progressbar(it, prefix="Processing ", size=50):
 
 
 def get_file(getfile, unpack=True, raw=False, HTTP_PROXY=None):
-    try:
-        if HTTP_PROXY:
-            proxy = req.ProxyHandler({'http': HTTP_PROXY, 'https': HTTP_PROXY})
-            auth = req.HTTPBasicAuthHandler()
-            opener = req.build_opener(proxy, auth, req.HTTPHandler)
-            req.install_opener(opener)
+    if platform.system().lower() == "linux":
+        try:
+            if HTTP_PROXY:
+                proxy = req.ProxyHandler({'http': HTTP_PROXY, 'https': HTTP_PROXY})
+                auth = req.HTTPBasicAuthHandler()
+                opener = req.build_opener(proxy, auth, req.HTTPHandler)
+                req.install_opener(opener)
 
-        data = response = req.urlopen(getfile)
+            data = response = req.urlopen(getfile)
 
-        if raw:
-            return data
+            if raw:
+                return data
 
-        if unpack:
-            if 'gzip' in response.info().get('Content-Type'):
-                buf = BytesIO(response.read())
-                data = gzip.GzipFile(fileobj=buf)
-            elif 'bzip2' in response.info().get('Content-Type'):
-                data = BytesIO(bz2.decompress(response.read()))
-            elif 'zip' in response.info().get('Content-Type'):
-                fzip = zipfile.ZipFile(BytesIO(response.read()), 'r')
-                length_of_namelist = len(fzip.namelist())
-                if length_of_namelist > 0:
-                    data = BytesIO(fzip.read(fzip.namelist()[0]))
-        return data, response
-    except Exception as ex:
-        return None, str(ex)
+            if unpack:
+                if 'gzip' in response.info().get('Content-Type'):
+                    current_directory = os.path.dirname(os.path.abspath(__file__))
+                    tmp_file = "data.json"
+                    full_path = "".join([
+                        current_directory, "/", tmp_file
+                    ])
+                    with open(full_path, "wb") as outfile:
+                        outfile.write(gzip.decompress(response.read()))
+                    out = open(full_path, 'r').read()
+                    return out, response
+                elif 'bzip2' in response.info().get('Content-Type'):
+                    data = BytesIO(bz2.decompress(response.read()))
+                elif 'zip' in response.info().get('Content-Type'):
+                    fzip = zipfile.ZipFile(BytesIO(response.read()), 'r')
+                    length_of_namelist = len(fzip.namelist())
+                    if length_of_namelist > 0:
+                        data = BytesIO(fzip.read(fzip.namelist()[0]))
+            return data, response
+        except Exception as ex:
+            return None, str(ex)
 
 
-def convert_list_data_to_json(data):
-    if isinstance(data, list):
-        serialized = []
-        for element in data:
-            serialized.append(json.dumps(element))
-        return serialized
-    else:
-        return []
+    elif platform.system().lower() == "darwin":
+        try:
+            if HTTP_PROXY:
+                proxy = req.ProxyHandler({'http': HTTP_PROXY, 'https': HTTP_PROXY})
+                auth = req.HTTPBasicAuthHandler()
+                opener = req.build_opener(proxy, auth, req.HTTPHandler)
+                req.install_opener(opener)
+
+            data = response = req.urlopen(getfile)
+
+            if raw:
+                return data
+
+            if unpack:
+                if 'gzip' in response.info().get('Content-Type'):
+                    buf = BytesIO(response.read())
+                    data = gzip.GzipFile(fileobj=buf)
+                elif 'bzip2' in response.info().get('Content-Type'):
+                    data = BytesIO(bz2.decompress(response.read()))
+                elif 'zip' in response.info().get('Content-Type'):
+                    fzip = zipfile.ZipFile(BytesIO(response.read()), 'r')
+                    length_of_namelist = len(fzip.namelist())
+                    if length_of_namelist > 0:
+                        data = BytesIO(fzip.read(fzip.namelist()[0]))
+            return data, response
+        except Exception as ex:
+            return None, str(ex)
 
 
 def drop_all_tables_in_postgres():

@@ -16,7 +16,7 @@ database = peewee.PostgresqlDatabase(
 class CWE(peewee.Model):
     class Meta:
         database = database
-        ordering =("cwe_id", )
+        ordering = ("cwe_id", )
         table_name = "cwe"
 
     id = peewee.PrimaryKeyField(null=False, )
@@ -56,7 +56,11 @@ class CAPEC(peewee.Model):
     summary = peewee.TextField(default="",)
     prerequisites = peewee.TextField(default="",)
     solutions = peewee.TextField(default="",)
-    related_weakness = peewee.TextField(default='{"data":[]},')
+    related_weakness = ArrayField(
+        peewee.TextField,
+        default=[],
+        verbose_name='related_weakness'
+    )
 
     def __unicode__(self):
         return "capec"

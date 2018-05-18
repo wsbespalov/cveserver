@@ -8,7 +8,7 @@ from datetime import datetime
 from dateutil.parser import parse as parse_datetime
 
 from models import vulnerabilities, INFO, CAPEC
-from searcher import reformat_vulner_for_output__json
+from searcher import reformat_vulner_for_output
 
 from utils import get_file
 from utils import unify_time
@@ -35,7 +35,10 @@ def download_cve_file(source):
     """
     file_stream, response_info = get_file(source)
     try:
-        result = json.load(file_stream)
+        if isinstance(file_stream, str):
+            result = json.loads(file_stream)
+        else:
+            result = json.load(file_stream)
         if "CVE_Items" in result:
             CVE_data_timestamp = result.get("CVE_data_timestamp", unify_time(datetime.utcnow()))
             return result["CVE_Items"], CVE_data_timestamp, response_info
@@ -195,7 +198,7 @@ def create_record_in_vulnerabilities_table(item_to_create):
         references=item_to_create.get("references", []),
         description=item_to_create.get("description", ""),
         cpe=item_to_create.get("cpe", ""),
-        vulnerable_configuration=item_to_create.get("vulnerable_configuration", '{"data": []}'),
+        vulnerable_configuration=item_to_create.get("vulnerable_configuration", []),
         published=item_to_create.get("published", str(datetime.utcnow())),
         modified=item_to_create.get("modified", str(datetime.utcnow())),
         access=item_to_create.get("access", '{}'),
@@ -381,7 +384,7 @@ def update_modified_vulners_from_source():
                 queue.rpush(
                     SETTINGS["queue"]["modified_queue"],
                     serialize_as_json__for_cache(
-                        reformat_vulner_for_output__json(one_item_to_update)
+                        reformat_vulner_for_output(one_item_to_update)
                     )
                 )
             except Exception as ex:
@@ -437,7 +440,7 @@ def update_recent_vulners_from_source():
                 queue.rpush(
                     SETTINGS["queue"]["new_queue"],
                     serialize_as_json__for_cache(
-                        reformat_vulner_for_output__json(one_item_to_update)
+                        reformat_vulner_for_output(one_item_to_update)
                     )
                 )
             except Exception as ex:
