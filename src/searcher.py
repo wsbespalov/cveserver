@@ -6,40 +6,6 @@ from database import *
 from models import vulnerabilities
 
 
-def find_vulner_in_postgres_by_cve_id(cve_id):
-    """
-    Find vulner in vulnerabilities table in PostgresQL by cve_id
-    :param cve_id:
-    :return: list of json items
-    """
-    connect_database()
-    database_items = list(vulnerabilities.select().where(vulnerabilities.cve_id==cve_id))
-    items = []
-    for database_item in database_items:
-        items.append(
-            database_item.to_json
-        )
-    disconnect_database()
-    return items
-
-
-def find_list_of_vulners_in_postgres_by_cve_id(list_of_cve_ids):
-    """
-    Find list of vulners in vulnerabilities table in PostgresQL by list of cve_id
-    :param list_of_cve_ids:
-    :return: list of json items
-    """
-    items = []
-    if isinstance(list_of_cve_ids, list):
-        connect_database()
-        for cve_id in list_of_cve_ids:
-            database_items = list(vulnerabilities.select().where(vulnerabilities.cve_id == cve_id))
-            for database_item in database_items:
-                items = items + [database_item.to_json]
-        disconnect_database()
-    return items
-
-
 def find_vulners_in_postgres_by_component_and_version(component, version):
     """
     Find list of vulners in vulnerabilities table in Postgres by component and version
@@ -70,49 +36,6 @@ def find_vulners_in_postgres_by_component_and_version(component, version):
     disconnect_database()
     return items
 
-
-def find_list_of_vulners_in_postgres_by_component_and_versions_list(list_of_component_and_versions):
-    """
-    Find list of vulners in vulnerabilities table in Postgres by list of components and its versions
-    :param list_of_component_and_versions:
-    :return: list of json items
-    """
-
-    # If version contains "*" - slice version and use "startswith".
-    # example:
-    #     version = "1.3.*" -> version = "1.3."
-
-    items = []
-    if isinstance(list_of_component_and_versions, list):
-        connect_database()
-        for component_and_version in list_of_component_and_versions:
-            if isinstance(component_and_version, dict):
-                component = str(component_and_version["component"])
-                version = str(component_and_version["version"])
-                list_of_elements = []
-                if "*" in version:
-                    version = version[:version.index("*")]
-                    list_of_elements = list(
-                        vulnerabilities.select().where(
-                            (vulnerabilities.component == component) &
-                            (vulnerabilities.version.startswith(version))
-                        )
-                    )
-                else:
-                    list_of_elements = list(
-                        vulnerabilities.select().where(
-                            (vulnerabilities.component == component) &
-                            (vulnerabilities.version == version)
-                        )
-                    )
-                new_items = []
-                for element in list_of_elements:
-                    new_items.append(element.to_json)
-                items = items + new_items
-        disconnect_database()
-    return items
-
-
 def create_collection_name_by_component_and_version(component, version):
     """
     Create collection name for cache search
@@ -132,7 +55,6 @@ def create_collection_name_by_component_and_version(component, version):
         str(version)
     ])
     return collection_name
-
 
 def check_if_item_is_already_cached_in_redis(component, version):
     """
@@ -160,7 +82,6 @@ def check_if_item_is_already_cached_in_redis(component, version):
             )
         )
     return list_of_components
-
 
 def put_items_into_redis_cache(items_to_cache):
     """
@@ -193,36 +114,6 @@ def put_items_into_redis_cache(items_to_cache):
                 print("{}".format(ex))
     return count
 
-
-def fast_search_for_list_of_vulners(list_of_component_and_versions):
-    """
-    Search items by list of components and its versions in PostgresQL and Cache
-    :param list_of_component_and_versions:
-    :return: list of json items
-    """
-    ready_items = []
-    for item in list_of_component_and_versions:
-        if isinstance(item, dict):
-            component = item.get("component", None)
-            version = item.get("version", None)
-            if component is not None and version is not None:
-                items_in_redis = check_if_item_is_already_cached_in_redis(component, version)
-                if len(items_in_redis) > 0:
-                    # If item in redis - get data from redis
-                    ready_items = ready_items + items_in_redis
-                else:
-                    # If item not in redis - get data from postgres
-                    items_in_postgres = find_vulners_in_postgres_by_component_and_version(
-                        component=component,
-                        version=version
-                    )
-                    # And put it into cache
-                    put_items_into_redis_cache(items_in_postgres)
-                    # Append result
-                    ready_items = ready_items + items_in_postgres
-    return ready_items
-
-
 def only_digits(var):
     """
     Get only digits from string
@@ -233,7 +124,6 @@ def only_digits(var):
         return re.sub("\D", "", var)
     else:
         return ""
-
 
 def reformat_vulner_for_output(item_to_reformat):
     """
@@ -316,7 +206,6 @@ def reformat_vulner_for_output(item_to_reformat):
     )
     return template
 
-
 def fast_search_for_one_vulner_in_json(item_to_search):
     """
     Search one Item by component and version from JSON request in Postgres and in Cache
@@ -350,16 +239,44 @@ def fast_search_for_one_vulner_in_json(item_to_search):
                     put_items_into_redis_cache(items_in_postgres)
                     # Append result
                     ready_items = ready_items + items_in_postgres
+    # Filter results if needs to output only one
+    # For ex.: junos:14.1:rc1, junos:14.1:rc2, junos:14.1:rc3, ... -> junos:14.1:rc1
+
+    filtered_items = []
+
+    if SETTINGS["search"]["output_only_one"]:
+        if len(ready_items) > 1:
+            filtered_items.append(ready_items[0])
+            for i in range(1, len(ready_items)):
+                for x in range(i + 1, len(ready_items)):
+                    if ready_items[i]["component"] == ready_items[x]["component"] and \
+                        ready_items[i]["version"] == ready_items[x]["version"] and \
+                            ready_items[i]["cve_id"] == ready_items[x]["cve_id"]:
+                        pass
+                    else:
+                        filtered_items.append(ready_items[i])
+        elif len(ready_items) == 1:
+            filtered_items = ready_items
+        else:
+            pass
+        pass
+    else:
+        filtered_items = ready_items
+
+    print('Foud items:')
+    print_list(ready_items)
+    print('Found without duplicates')
+    print_list(filtered_items)
+
     # Reformat items
     reformatted_items = []
-    for item in ready_items:
+    for item in filtered_items:
         reformatted_items.append(
             reformat_vulner_for_output(
                 item
             )
         )
     return reformatted_items
-
 
 def scan_queue_for_keys() -> list:
     """
@@ -473,9 +390,6 @@ def run():
                         )
                     except Exception as ex:
                         pass
-
-                # print('TimeDelta: {}'.format(time.time() - start_time))
-
 
 def main():
     print('Searcher started...')

@@ -20,7 +20,7 @@ SETTINGS = {
         "database": "updater_db",
         "host": "localhost",
         "port": "5432",
-        "drop_before": False,
+        "drop_before": True,
         "cache_size_mb": 64
     },
     "cache": {
@@ -47,6 +47,11 @@ SETTINGS = {
         "message_to_kill_search": "message_to_kill_search",
         "modified_queue": "VulnerabilityManagement-CVE:modified",
         "new_queue": "VulnerabilityManagement-CVE:new"
+    },
+    "search": {
+        "output_only_one": True,    # True - output only one result with the same component:version
+                                    # junos:14.1:rc1, junos:14.1:rc2, junos:14.1:rc3, ... -> junos:14.1:rc1
+                                    # False - output all found
     },
     "debug": True
 }

@@ -63,7 +63,7 @@ database = peewee.PostgresqlDatabase(
     port=int(POSTGRES.get("port", 5432))
 )
 
-class vulnerabilities_inmemory(peewee.Model):
+class vulnerabilities(peewee.Model):
     class Meta:
         database = database
         ordering = ("component", )
@@ -497,7 +497,7 @@ class CVEUpdaterDownloader(object):
                     )
                 ))
 
-        vulner = vulnerabilities_inmemory(
+        vulner = vulnerabilities(
             component=item_to_create.get("component", ""),
             version=item_to_create.get("version", ""),
             data_type=item_to_create.get("data_type", ""),

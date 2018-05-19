@@ -25,7 +25,7 @@ message_2 = {
     "set_id": "5aed6441ba733d37419d5564",
     "component": {
         "name": "junos",
-        "version": "14.*"}
+        "version": "12.3*"}
 }
 
 message_3 = {
@@ -41,7 +41,7 @@ publish_message_to_queue('start_search')
 
 queue.rpush(
     "search::5aed6441ba733d37419d5565",
-    message_1
+    message_2
 )
 time.sleep(5)
 
