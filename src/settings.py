@@ -23,6 +23,14 @@ SETTINGS = {
         "drop_before": True,
         "cache_size_mb": 64
     },
+    "memcached": {
+        "key_prefix": "index",
+        "separator": "::",
+        "drop_cache_before": True,
+        "dump_directory": "/tmp",
+        "dump_file_name_base": "dump",
+        "dump_file_extension": "json"
+    },
     "cache": {
         "host": 'localhost',
         "port": 6379,

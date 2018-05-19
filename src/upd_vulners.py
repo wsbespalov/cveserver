@@ -455,14 +455,3 @@ def update_recent_vulners_from_source():
         count_of_updated_items = len(items_to_update)
 
     return count_of_parsed_cve_items, count_of_updated_items, time.time() - start_time
-
-
-def get_vulners_table_count():
-    """
-    Get count of items from vulnerabilities table
-    :return:
-    """
-    connect_database()
-    count = vulnerabilities.select().count()
-    disconnect_database()
-    print('Table ~vulnerabilities~ contains {} items'.format(count))
