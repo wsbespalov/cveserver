@@ -10,19 +10,10 @@ from settings import SETTINGS
 class Populater(object):
 
     def __init__(self):
-        self.prefix_get = SETTINGS["queue"]["prefix_get"]
-        self.channel_to_subscribe_and_publish = SETTINGS["queue"]["vulnerability_channel"]
-        self.message_to_get_vulnerability = SETTINGS["queue"]["message_to_get_vulnerability"]
-        pass
-
-    def scan_queue_for_keys(self):
-        mask = self.prefix_get + "*"
-        mykeys = []
-        try:
-            mykeys = queue.keys(mask)
-        except Exception as ex:
-            print("{}".format(ex))
-        return mykeys
+        self.queue_settings = SETTINGS.get("queue", {})
+        self.channel_to_subscribe_and_publish = self.queue_settings.get("vulnerability_channel", "vulnerabilityServiceChannel")
+        self.message_to_get_vulnerability = self.queue_settings.get("message_to_get_vulnerability", "getVulnerability")
+        self.complete_get_vulnerability = self.queue_settings.get("complete_get_vulnerability", "result::")
 
     def run(self):
         subscriber = queue.pubsub()
@@ -37,17 +28,15 @@ class Populater(object):
                     data = data.decode("utf-8")
                 if self.message_to_get_vulnerability in data:
                     id_of_request = data[len(self.message_to_get_vulnerability) + 10:]
-                    uniq_id = data[len(self.message_to_get_vulnerability) + 1 :len(self.message_to_get_vulnerability) + 9]
+                    uniq_id = data[len(self.message_to_get_vulnerability) + 1:len(self.message_to_get_vulnerability) + 9]
                     try:
                         int(id_of_request)
                     except ValueError:
                         search_options = json.loads(id_of_request)
-                        new_collection_name = SETTINGS["queue"]["complete_get_vulnerability"] + uniq_id + ':' + search_options['name'] + ':' + search_options['version']
-
-                        search_options['name'] = 'junos'
-                        search_options['version'] = '*'
+                        new_collection_name = self.complete_get_vulnerability + uniq_id + ':' + search_options['name'] + ':' + search_options['version']
 
                         connect_database()
+
                         if search_options['version'] == '*':
                             count = vulnerabilities.select().where(
                                     vulnerabilities.component == search_options['name']
@@ -87,9 +76,10 @@ class Populater(object):
                             message=new_collection_name)
 
                     except Exception as ex:
-                        print(ex)
+                        if SETTINGS.get("debug", False):
+                            print(ex)
                     else:
-                        new_collection_name = SETTINGS["queue"]["complete_get_vulnerability"] + uniq_id + ':' + id_of_request
+                        new_collection_name = self.complete_get_vulnerability + uniq_id + ':' + id_of_request
                         connect_database()
                         vulnerability = list(
                             vulnerabilities.select().where(
