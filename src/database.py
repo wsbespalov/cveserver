@@ -1,6 +1,11 @@
 import peewee
 from settings import SETTINGS
 
+from models import CWE
+from models import INFO
+from models import CAPEC
+from models import VULNERABILITIES
+
 POSTGRES = SETTINGS.get("postgres", {})
 database = peewee.PostgresqlDatabase(
     database=POSTGRES.get("database", "updater_db"),
@@ -35,3 +40,28 @@ def disconnect_database():
     except peewee.OperationalError as peewee_operational_error:
         pass
 
+def drop_all_tables_in_postgres():
+    """
+    Drop tables from PostgresQL
+    :return:
+    """
+    if SETTINGS["postgres"]["drop_before"]:
+        connect_database()
+        CAPEC.drop_table()
+        CWE.drop_table()
+        INFO.drop_table()
+        VULNERABILITIES.drop_table()
+        disconnect_database()
+
+
+def create_tables_in_postgres():
+    """
+    Drop tables from PostgresQL
+    :return:
+    """
+    connect_database()
+    CAPEC.create_table()
+    CWE.create_table()
+    INFO.create_table()
+    VULNERABILITIES.create_table()
+    disconnect_database()

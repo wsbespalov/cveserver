@@ -1,7 +1,10 @@
-from utils import *
+import re
+import sys
+import json
 from caches import queue
+from utils import serialize_as_json__for_cache
 from database import *
-from models import vulnerabilities
+from models import VULNERABILITIES
 from searcher import reformat_vulner_for_output
 
 from settings import SETTINGS
@@ -38,26 +41,26 @@ class Populater(object):
                         connect_database()
 
                         if search_options['version'] == '*':
-                            count = vulnerabilities.select().where(
-                                    vulnerabilities.component == search_options['name']
+                            count = VULNERABILITIES.select().where(
+                                VULNERABILITIES.component == search_options['name']
                                 ).count()
                             vulnerability = list(
-                                vulnerabilities.select().where(
-                                        (vulnerabilities.component == search_options['name']) &
-                                        (vulnerabilities.cvss >= search_options['sort'])
-                                ).offset(search_options['skip']).limit(search_options['limit']).order_by(vulnerabilities.cvss.desc())
+                                VULNERABILITIES.select().where(
+                                    (VULNERABILITIES.component == search_options['name']) &
+                                    (VULNERABILITIES.cvss >= search_options['sort'])
+                                ).offset(search_options['skip']).limit(search_options['limit']).order_by(VULNERABILITIES.cvss.desc())
                             )
                         else:
-                            count = vulnerabilities.select().where(
-                                    (vulnerabilities.component == search_options['name']) &
-                                    (vulnerabilities.version == search_options['version'])
+                            count = VULNERABILITIES.select().where(
+                                (VULNERABILITIES.component == search_options['name']) &
+                                (VULNERABILITIES.version == search_options['version'])
                                 ).count()
                             vulnerability = list(
-                                vulnerabilities.select().where(
-                                    (vulnerabilities.component == search_options['name']) &
-                                    (vulnerabilities.version == search_options['version']) &
-                                    (vulnerabilities.cvss >= search_options['sort'])
-                                ).offset(search_options['skip']).limit(search_options['limit']).order_by(vulnerabilities.cvss.desc())
+                                VULNERABILITIES.select().where(
+                                    (VULNERABILITIES.component == search_options['name']) &
+                                    (VULNERABILITIES.version == search_options['version']) &
+                                    (VULNERABILITIES.cvss >= search_options['sort'])
+                                ).offset(search_options['skip']).limit(search_options['limit']).order_by(VULNERABILITIES.cvss.desc())
                             )
 
                         queue.rpush(
@@ -82,8 +85,8 @@ class Populater(object):
                         new_collection_name = self.complete_get_vulnerability + uniq_id + ':' + id_of_request
                         connect_database()
                         vulnerability = list(
-                            vulnerabilities.select().where(
-                                vulnerabilities.id == id_of_request)
+                            VULNERABILITIES.select().where(
+                                VULNERABILITIES.id == id_of_request)
                         )
 
                         vlist = []

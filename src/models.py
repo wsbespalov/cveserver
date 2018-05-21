@@ -81,7 +81,7 @@ class CAPEC(peewee.Model):
         )
 
 
-class vulnerabilities(peewee.Model):
+class VULNERABILITIES(peewee.Model):
     class Meta:
         database = database
         ordering = ("component", )
@@ -105,7 +105,7 @@ class vulnerabilities(peewee.Model):
         verbose_name='references'
     )
     description = peewee.TextField(default="",)
-    cpe = peewee.TextField(default="",)
+    # cpe = peewee.TextField(default="",)
     vulnerable_configuration = ArrayField(
         peewee.TextField,
         default=[],
@@ -148,7 +148,7 @@ class vulnerabilities(peewee.Model):
             cwe=self.cwe,
             references=self.references,
             description=self.description,
-            cpe=self.cpe,
+            # cpe=self.cpe,
             vulnerable_configuration=self.vulnerable_configuration,
             published=self.published,
             modified=self.modified,

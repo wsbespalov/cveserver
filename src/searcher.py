@@ -3,100 +3,22 @@ from math import floor
 from utils import *
 from caches import cache, queue
 from database import *
-from models import vulnerabilities
+from models import VULNERABILITIES
 
 from settings import SETTINGS
-
-
-def reformat_vulner_for_output(item_to_reformat):
-    """
-    Reformat vulner for Response
-    :param item_to_reformat:
-    :return: reformatted item for response
-    """
-    id = item_to_reformat["id"]
-    published = unify_time(item_to_reformat.get("publushed", datetime.utcnow()))
-    modified = unify_time(item_to_reformat.get("modified", datetime.utcnow()))
-    access_in_item = item_to_reformat.get("access", dict(
-        vector="",
-        complexity="",
-        authentication=""
-    ))
-    if isinstance(access_in_item, str):
-        access = deserialize_json__for_postgres(access_in_item)
-    else:
-        access = access_in_item
-
-    impact_in_item = item_to_reformat.get("impact", dict(
-        confidentiality="",
-        integrity="",
-        availability=""
-    ))
-    if isinstance(impact_in_item, str):
-        impact = deserialize_json__for_postgres(impact_in_item)
-    else:
-        impact = impact_in_item
-
-    vector_string = item_to_reformat.get("vector_string", "")
-    cvss_time = unify_time(item_to_reformat.get("cvss_time", datetime.utcnow()))
-    cvss = item_to_reformat.get("cvss", 0.0)
-    cwe_in_item = item_to_reformat.get("cwe", [])
-    cwe_list = deserialize_json__for_postgres(cwe_in_item)
-    cwe_id_list = []
-    for cwe_in_list in cwe_list:
-        cwe_id_list.append(re.sub("\D", "", cwe_in_list))
-    title = item_to_reformat.get("cve_id", "")
-    description = item_to_reformat.get("description", "")
-
-    rank = floor(cvss)
-
-    __v = 0
-
-    capec_list = item_to_reformat.get("capec", [])
-    capec = []  # not yet
-
-    for capec_in_list in capec_list:
-        if isinstance(capec_in_list, str):
-            capec.append(json.loads(capec_in_list))
-        elif isinstance(capec_in_list, dict):
-            capec.append(capec_in_list)
-
-    vulnerable_configurations = []
-
-    vulnerable_configuration = item_to_reformat.get("vulnerable_configuration", [])
-
-    cve_references = item_to_reformat.get("references", [])
-
-    template = dict(
-        _id=id,
-        Published=published,
-        Modified=modified,
-        access=access,
-        impact=impact,
-        cvss_time=cvss_time,
-        cvss=cvss,
-        cwe=cwe_list,
-        cwe_id=cwe_id_list,
-        title=title,
-        description=description,
-        rank=rank,
-        __v=__v,
-        capec=capec,
-        vulnerable_configurations=vulnerable_configurations,
-        vulnerable_configuration=vulnerable_configuration,
-        cve_references=cve_references,
-        vector_string=vector_string
-    )
-    return template
-
+from utils import reformat_vulner_for_output
 
 class Searcher(object):
 
     def __init__(self):
-        self.key_expire_time_in_sec = SETTINGS["cache"]["key_expire_time_in_sec"]
-        self.cache_index = SETTINGS["cache"]["index"]
-        self.cache_separator = SETTINGS["cache"]["separator"]
-        self.prefix_requests = SETTINGS["queue"]["prefix_requests"]
+        self.queue_settings = SETTINGS.get("queue", {})
+        self.cache_settings = SETTINGS.get("cache", {})
+
+        self.key_expire_time_in_sec = self.cache_settings.get("key_expire_time_in_sec", 30)
+        self.cache_index = self.cache_settings.get("index", "index")
+        self.cache_separator = self.cache_settings.get("separator", "::")
+        self.prefix_requests = self.queue_settings.get("prefix_requests", "search::")
+        self.complete_message = self.queue_settings.get("complete_message", "create::")
 
     @staticmethod
     def find_vulners_in_postgres_by_component_and_version(component, version):
@@ -110,14 +32,14 @@ class Searcher(object):
         connect_database()
         if "*" in version:
             version = version[:version.index("*")]
-            list_of_elements = list(vulnerabilities.select().where(
-                    (vulnerabilities.component == component) &
-                    (vulnerabilities.version.startswith(version))))
+            list_of_elements = list(VULNERABILITIES.select().where(
+                (VULNERABILITIES.component == component) &
+                (VULNERABILITIES.version.startswith(version))))
         else:
             list_of_elements = list(
-                vulnerabilities.select().where(
-                    (vulnerabilities.component == component) &
-                    (vulnerabilities.version == version)))
+                VULNERABILITIES.select().where(
+                    (VULNERABILITIES.component == component) &
+                    (VULNERABILITIES.version == version)))
         for element in list_of_elements:
             items.append(element.to_json)
         disconnect_database()
@@ -193,12 +115,6 @@ class Searcher(object):
         :param item_to_search:
         :return: reformatted item for response
         """
-        # Source request for search:
-        # {"project_id":"5aed6441ba733d37419d5565",
-        #  "organization_id":"5ae05fde9531a003aacdacf8",
-        #  "set_id":"5aed6441ba733d37419d5564",
-        #  "component":{
-        #       "name":"tomcat","version":"3.0"}}
         ready_items = []
         if isinstance(item_to_search, dict):
             component_and_version = item_to_search.get("component", {})
@@ -242,7 +158,6 @@ class Searcher(object):
 
 
     def run(self):
-        self.queue_settings = SETTINGS.get("queue", {})
         channel_to_subscribe_and_publish = self.queue_settings.get("channel", "start_processing")
         message_to_start_search = self.queue_settings.get("message_to_start_search", "start_search")
         message_to_kill_search = self.queue_settings.get("message_to_kill_search", "message_to_kill_search")
@@ -325,7 +240,7 @@ class Searcher(object):
                                     print('Exception while handling one search result: {}'.format(ex))
                         try:
                             # Publish message to channel for search complete
-                            complete_message = SETTINGS["queue"]["complete_message"] + id_of_request
+                            complete_message = self.complete_message + id_of_request
                             queue.publish(
                                 channel=channel_to_subscribe_and_publish,
                                 message=complete_message

@@ -1,16 +1,18 @@
 import os
+import re
 import ast
 import bz2
 import gzip
 import json
 import sys
+from math import floor
 import urllib.request as req
 import zipfile
 from datetime import datetime
 from io import BytesIO
 import platform
 
-from models import vulnerabilities, INFO, CAPEC, CWE
+from models import VULNERABILITIES, INFO, CAPEC, CWE
 from database import *
 
 from dateutil.parser import parse as parse_datetime
@@ -188,30 +190,85 @@ def get_file(getfile, unpack=True, raw=False, HTTP_PROXY=None):
             return None, str(ex)
 
 
-def drop_all_tables_in_postgres():
+def reformat_vulner_for_output(item_to_reformat):
     """
-    Drop tables from PostgresQL
-    :return:
+    Reformat vulner for Response
+    :param item_to_reformat:
+    :return: reformatted item for response
     """
-    if SETTINGS["postgres"]["drop_before"]:
-        print('Tables will be drop from PostgresQL')
-        connect_database()
-        CAPEC.drop_table()
-        CWE.drop_table()
-        INFO.drop_table()
-        vulnerabilities.drop_table()
-        disconnect_database()
+    id = item_to_reformat["id"]
+    published = unify_time(item_to_reformat.get("publushed", datetime.utcnow()))
+    modified = unify_time(item_to_reformat.get("modified", datetime.utcnow()))
+    access_in_item = item_to_reformat.get("access", dict(
+        vector="",
+        complexity="",
+        authentication=""
+    ))
+    if isinstance(access_in_item, str):
+        access = deserialize_json__for_postgres(access_in_item)
+    else:
+        access = access_in_item
 
+    impact_in_item = item_to_reformat.get("impact", dict(
+        confidentiality="",
+        integrity="",
+        availability=""
+    ))
+    if isinstance(impact_in_item, str):
+        impact = deserialize_json__for_postgres(impact_in_item)
+    else:
+        impact = impact_in_item
 
-def create_tables_in_postgres():
-    """
-    Drop tables from PostgresQL
-    :return:
-    """
-    connect_database()
-    CAPEC.create_table()
-    CWE.create_table()
-    INFO.create_table()
-    vulnerabilities.create_table()
-    disconnect_database()
+    vector_string = item_to_reformat.get("vector_string", "")
+    cvss_time = unify_time(item_to_reformat.get("cvss_time", datetime.utcnow()))
+    cvss = item_to_reformat.get("cvss", 0.0)
+    cwe_in_item = item_to_reformat.get("cwe", [])
+    cwe_list = deserialize_json__for_postgres(cwe_in_item)
+    cwe_id_list = []
+    for cwe_in_list in cwe_list:
+        cwe_id_list.append(re.sub("\D", "", cwe_in_list))
+    title = item_to_reformat.get("cve_id", "")
+    description = item_to_reformat.get("description", "")
+
+    rank = floor(cvss)
+
+    __v = 0
+
+    capec_list = item_to_reformat.get("capec", [])
+    capec = []  # not yet
+
+    for capec_in_list in capec_list:
+        if isinstance(capec_in_list, str):
+            capec.append(json.loads(capec_in_list))
+        elif isinstance(capec_in_list, dict):
+            capec.append(capec_in_list)
+
+    vulnerable_configurations = []
+
+    vulnerable_configuration = item_to_reformat.get("vulnerable_configuration", [])
+
+    cve_references = item_to_reformat.get("references", [])
+
+    template = dict(
+        _id=id,
+        Published=published,
+        Modified=modified,
+        access=access,
+        impact=impact,
+        cvss_time=cvss_time,
+        cvss=cvss,
+        cwe=cwe_list,
+        cwe_id=cwe_id_list,
+        title=title,
+        description=description,
+        rank=rank,
+        __v=__v,
+        capec=capec,
+        vulnerable_configurations=vulnerable_configurations,
+        vulnerable_configuration=vulnerable_configuration,
+        cve_references=cve_references,
+        vector_string=vector_string
+    )
+    return template
+
 

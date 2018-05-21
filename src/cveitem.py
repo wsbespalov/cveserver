@@ -1,3 +1,4 @@
+import re
 import json
 from datetime import datetime
 
@@ -61,7 +62,7 @@ class CVEItem(object):
 
         self.vulnerable_configuration = cpe22
 
-        self.cpe = ""
+        # self.cpe = ""
         self.published = data.get("publishedDate", datetime.utcnow())
         self.modified = data.get("lastModifiedDate", datetime.utcnow())
 

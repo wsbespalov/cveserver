@@ -27,6 +27,7 @@ SETTINGS = {
         "key_prefix": "index",
         "separator": "::",
         "drop_cache_before": True,
+        "store_dumps_on_disk":True,
         "dump_directory": "/tmp",
         "dump_file_name_base": "dump",
         "dump_file_extension": "json"
