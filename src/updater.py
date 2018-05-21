@@ -1,4 +1,3 @@
-import re
 from upd_cwe import action_update_cwe
 from upd_capec import action_update_capec
 from searcher import *
@@ -11,6 +10,8 @@ import time
 
 from inmemorystorage import InMemoryStorage
 from cveitem import CVEItem
+
+from redis import exceptions
 
 
 class Updater(object):
@@ -237,7 +238,6 @@ class Updater(object):
         was_modified = False
         vulner_from_database = VULNERABILITIES.get(VULNERABILITIES.id == item_id_in_database)
         vulner = vulner_from_database.to_json
-
 
         if vulner["data_type"] != item_to_update["data_type"]:
             was_modified = True
@@ -466,6 +466,16 @@ class Updater(object):
         return count_of_parsed_cve_items, count_of_populated_items, time.time() - start_time
 
     #
+    # Checkers
+    #
+
+    def check_if_redis_working(self):
+        try:
+            queue.ping()
+        except exceptions.ConnectionError:
+            sys.exit("Redis not running")
+
+    #
     # Actions
     #
 
@@ -507,6 +517,7 @@ class Updater(object):
         print("TimeDelta  %.2f sec." % (time_delta))
 
     def run(self):
+        self.check_if_redis_working()
         self.drop_all_tables_in_postgres()
         self.create_tables_in_postgres()
         self.action_update_cwe()
