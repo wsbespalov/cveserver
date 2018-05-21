@@ -220,40 +220,10 @@ class Searcher(object):
                         self.put_items_into_redis_cache(items_in_postgres)
                         # Append result
                         ready_items = ready_items + items_in_postgres
-        # Filter results if needs to output only one
-        # For ex.: junos:14.1:rc1, junos:14.1:rc2, junos:14.1:rc3, ... -> junos:14.1:rc1
-
-        filtered_items = []
-
-        # TODO: Debug this stuff
-
-        if SETTINGS["search"]["output_only_one"]:
-            if len(ready_items) > 1:
-                filtered_items.append(ready_items[0])
-                for i in range(1, len(ready_items)):
-                    for x in range(i + 1, len(ready_items)):
-                        if ready_items[i]["component"] == ready_items[x]["component"] and \
-                            ready_items[i]["version"] == ready_items[x]["version"] and \
-                                ready_items[i]["cve_id"] == ready_items[x]["cve_id"]:
-                            pass
-                        else:
-                            filtered_items.append(ready_items[i])
-            elif len(ready_items) == 1:
-                filtered_items = ready_items
-            else:
-                pass
-            pass
-        else:
-            filtered_items = ready_items
-
-        print('Found items:')
-        print_list(ready_items)
-        print('Found without duplicates')
-        print_list(filtered_items)
 
         # Reformat items
         reformatted_items = []
-        for item in filtered_items:
+        for item in ready_items:
             reformatted_items.append(reformat_vulner_for_output(item))
         return reformatted_items
 
@@ -272,9 +242,10 @@ class Searcher(object):
 
 
     def run(self):
-        channel_to_subscribe_and_publish = SETTINGS["queue"]["channel"]
-        message_to_start_search = SETTINGS["queue"]["message_to_start_search"]
-        message_to_kill_search = SETTINGS["queue"]["message_to_kill_search"]
+        self.queue_settings = SETTINGS.get("queue", {})
+        channel_to_subscribe_and_publish = self.queue_settings.get("channel", "start_processing")
+        message_to_start_search = self.queue_settings.get("message_to_start_search", "start_search")
+        message_to_kill_search = self.queue_settings.get("message_to_kill_search", "message_to_kill_search")
 
         subscriber = queue.pubsub()
         subscriber.subscribe([channel_to_subscribe_and_publish])
@@ -329,9 +300,6 @@ class Searcher(object):
                             )
                             for one_search_result in search_result:
                                 # Append results into structure
-                                # {"project_id": "5aed6441ba733d37419d5565", "organization_id": "5ae05fde9531a003aacdacf8",
-                                #  "set_id": "5aed6441ba733d37419d5564", "component": {"name": "tomcat", "version": "3.0"}}
-                                # -> one_search_result - found item in JSON
                                 try:
                                     new_content = dict(
                                         project_id=content_for_search["project_id"],
