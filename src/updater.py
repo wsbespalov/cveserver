@@ -364,13 +364,15 @@ class Updater(object):
                         )
                     )
                 except Exception as ex:
-                    print(ex)
-
-            # Publish message
-            queue.publish(
-                self.channel_to_publish,
-                self.modified_queue
-            )
+                    sys.exit("Redis exception: {}".format(ex))
+            try:
+                # Publish message
+                queue.publish(
+                    self.channel_to_publish,
+                    self.modified_queue
+                )
+            except Exception as ex:
+                sys.exit("Redis exception: {}".format(ex))
 
             count_of_parsed_cve_items = len(modified_parsed)
             count_of_updated_items = len(items_to_update)
@@ -420,13 +422,16 @@ class Updater(object):
                         )
                     )
                 except Exception as ex:
-                    pass
+                    sys.exit("Redis exception: {}".format(ex))
+            try:
+                # Publish message
+                queue.publish(
+                    self.channel_to_publish,
+                    self.new_queue
+                )
+            except Exception as ex:
+                sys.exit("Redis exception: {}".format(ex))
 
-            # Publish message
-            queue.publish(
-                self.channel_to_publish,
-                self.new_queue
-            )
             count_of_parsed_cve_items = len(recent_parsed)
             count_of_updated_items = len(items_to_update)
 
