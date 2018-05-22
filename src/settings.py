@@ -38,7 +38,7 @@ SETTINGS = {
         "db": 3,
         "separator": "::",
         "index": "index",
-        "key_expire_time_in_sec": 30 # 1 minute for tests
+        "key_expire_time_in_sec": 120 # 1 minute for tests
     },
     "queue": {
         "host": 'localhost',

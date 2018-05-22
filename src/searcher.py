@@ -1,4 +1,5 @@
 import re
+import time
 from math import floor
 from utils import *
 from caches import cache, queue
@@ -18,6 +19,7 @@ class Searcher(object):
         self.cache_index = self.cache_settings.get("index", "index")
         self.cache_separator = self.cache_settings.get("separator", "::")
         self.prefix_requests = self.queue_settings.get("prefix_requests", "search::")
+        self.prefix_results = self.queue_settings.get("prefix_results", "create::")
         self.complete_message = self.queue_settings.get("complete_message", "create::")
 
     @staticmethod
@@ -178,9 +180,11 @@ class Searcher(object):
                     subscriber.unsubscribe(channel_to_subscribe_and_publish)
                     break
                 elif data == message_to_start_search:
+                    start_time = time.time()
+                    print('[+] Get message to start search')
                     # Message to search
                     # start_time = time.time()
-                    mask = SETTINGS["queue"]["prefix_requests"]
+                    mask = self.prefix_requests # SETTINGS["queue"]["prefix_requests"]
                     # Scan queue for keys
                     mykeys = self.scan_queue_for_keys__list()
 
@@ -192,7 +196,7 @@ class Searcher(object):
                         # Get one id
                         id_of_request = key.replace(mask, "")
                         # Create new collection name for search results
-                        new_collection_name = SETTINGS["queue"]["prefix_results"] + id_of_request
+                        new_collection_name = self.prefix_results + id_of_request
                         # Get content of collection
                         collection_content = []
                         try:
@@ -210,6 +214,9 @@ class Searcher(object):
                                 content_for_search = deserialize_json__for_postgres(content_decoded)
                             else:
                                 continue
+                            print('[+] Process component: name = {}, version = {}'
+                                  .format(content_for_search["component"]["name"],
+                                          content_for_search["component"]["version"]))
                             search_result = self.fast_search_for_one_vulner_in_json(
                                 content_for_search
                             )
@@ -251,7 +258,7 @@ class Searcher(object):
                             )
                         except Exception:
                             pass
-
+                    print('[+] Complete search in {} sec.'.format(time.time() - start_time))
 
 def main():
     print('Searcher started...')

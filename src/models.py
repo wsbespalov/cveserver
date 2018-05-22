@@ -86,6 +86,7 @@ class VULNERABILITIES(peewee.Model):
         database = database
         ordering = ("component", )
         table_name = "vulnerabilities"
+        # table_name = "vulnerabilities_inmemory_copy"
 
     id = peewee.PrimaryKeyField(null=False,)
     component = peewee.TextField(default="",)

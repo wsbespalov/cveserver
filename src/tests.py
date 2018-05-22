@@ -24,8 +24,8 @@ message_2 = {
     "organization_id": "5ae05fde9531a003aacdacf8",
     "set_id": "5aed6441ba733d37419d5564",
     "component": {
-        "name": "junos",
-        "version": "12.3*"}
+        "name": "ios",
+        "version": "*"}
 }
 
 message_3 = {
