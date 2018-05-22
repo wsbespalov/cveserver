@@ -1,3 +1,4 @@
+import sys
 import peewee
 from settings import SETTINGS
 
@@ -26,7 +27,7 @@ def connect_database():
         if database.is_closed():
             database.connect()
     except peewee.OperationalError as peewee_operational_error:
-        pass
+        sys.exit("PostgresQL is not working")
 
 
 def disconnect_database():
@@ -39,6 +40,7 @@ def disconnect_database():
             database.close()
     except peewee.OperationalError as peewee_operational_error:
         pass
+
 
 def drop_all_tables_in_postgres():
     """

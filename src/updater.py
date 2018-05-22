@@ -473,7 +473,7 @@ class Updater(object):
         try:
             queue.ping()
         except exceptions.ConnectionError:
-            sys.exit("Redis not running")
+            sys.exit("Redis is not working")
 
     #
     # Actions
