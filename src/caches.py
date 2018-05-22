@@ -12,3 +12,10 @@ queue = redis.StrictRedis(
     port=SETTINGS["queue"]["port"],
     db=SETTINGS["queue"]["db"]
 )
+
+
+def drop_cache():
+    try:
+        cache.flushall()
+    except Exception as ex:
+        print('Get an exception while flushing cache in Redis: {}'.format(ex))

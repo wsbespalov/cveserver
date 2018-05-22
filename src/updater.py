@@ -1,8 +1,12 @@
 from upd_cwe import action_update_cwe
 from upd_capec import action_update_capec
 from searcher import *
+
 from database import drop_all_tables_in_postgres
 from database import create_tables_in_postgres
+
+from caches import drop_cache
+
 import cpe as cpe_module
 import urllib
 import string
@@ -526,6 +530,7 @@ class Updater(object):
         self.action_populate_databases()
         self.action_update_modified_elements()
         self.action_update_recent_elements()
+        drop_cache()
         return 0
 
 
