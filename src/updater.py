@@ -473,7 +473,8 @@ class Updater(object):
         try:
             queue.ping()
         except exceptions.ConnectionError:
-            sys.exit("Redis is not working")
+            print("Redis is not working")
+            sys.exit(1)
 
     #
     # Actions
@@ -525,14 +526,13 @@ class Updater(object):
         self.action_populate_databases()
         self.action_update_modified_elements()
         self.action_update_recent_elements()
+        return 0
 
 
 def main():
     print('Updater started...')
     updater = Updater()
-    updater.run()
-    print("Complete updating database.")
-    return 0
+    return updater.run()
 
 
 if __name__ == '__main__':
