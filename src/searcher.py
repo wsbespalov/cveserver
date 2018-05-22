@@ -214,13 +214,25 @@ class Searcher(object):
                                 content_for_search = deserialize_json__for_postgres(content_decoded)
                             else:
                                 continue
+
                             print('[+] Process component: name = {}, version = {}'
                                   .format(content_for_search["component"]["name"],
                                           content_for_search["component"]["version"]))
+
+                            print('[+] Start search vulners: start time = {}'.format(time.time()))
+
                             search_result = self.fast_search_for_one_vulner_in_json(
                                 content_for_search
                             )
+
+                            print('[+] Finished search vulners: end time = {}'.format(time.time()))
+
+                            print('[+] Start process results: start time = {}'.format(time.time()))
+
                             for one_search_result in search_result:
+
+                                print('[+] Processing search: start time = {}'.format(time.time()))
+
                                 # Append results into structure
                                 try:
                                     new_content = dict(
@@ -245,17 +257,32 @@ class Searcher(object):
                                         print('Exception while push: {}'.format(ex))
                                 except Exception as ex:
                                     print('Exception while handling one search result: {}'.format(ex))
+
+                            print('[+] Finished process results: end time = {}'.format(time.time()))
+
                         try:
                             # Publish message to channel for search complete
+
+                            print('[+] Start publish message to chanel: start time = {}'.format(time.time()))
+
                             complete_message = self.complete_message + id_of_request
                             queue.publish(
                                 channel=channel_to_subscribe_and_publish,
                                 message=complete_message
                             )
+
+                            print('[+] Finished message to chanel: end time = {}'.format(time.time()))
+
                             # Delete search request
+
+                            print('[+] Start delete search request: start time = {}'.format(time.time()))
+
                             queue.delete(
                                 one_key
                             )
+
+                            print('[+] Finished delete search request: end time = {}'.format(time.time()))
+
                         except Exception:
                             pass
                     print('[+] Complete search in {} sec.'.format(time.time() - start_time))
