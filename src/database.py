@@ -27,7 +27,8 @@ def connect_database():
         if database.is_closed():
             database.connect()
     except peewee.OperationalError as peewee_operational_error:
-        sys.exit("PostgresQL is not working")
+        print("PostgresQL is not working")
+        sys.exit(1)
 
 
 def disconnect_database():
